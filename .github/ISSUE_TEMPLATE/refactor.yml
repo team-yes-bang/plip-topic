@@ -1,0 +1,47 @@
+name: Refactor
+description: 동작은 유지하고 코드 구조·가독성을 개선합니다.
+title: "[Refactor] "
+labels:
+  - Refactor
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        유형·제목·PR 규칙은 레포 루트 `GIT_CONVENTION.md`를 참고하세요.
+        외부 동작(API 계약)이 바뀌면 Feature 또는 Fix를 사용하세요.
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: 리팩토링 이유
+      description: 왜 필요한지, 현재 문제점은 무엇인지 작성해주세요.
+      placeholder: 예) Persistence 매퍼와 UseCase 책임이 섞여 있어 분리가 필요합니다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: 범위
+      description: 손댈 패키지·클래스 범위 (가능하면 명시)
+      placeholder: 예) com.plip.agit.adapter.out.persistence, application.service
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: 작업할 내용
+      description: 할 일을 체크박스로 작성해주세요.
+      value: |
+        - [ ]
+        - [ ]
+        - [ ] 기존 테스트 통과 확인
+    validations:
+      required: true
+
+  - type: textarea
+    id: reference
+    attributes:
+      label: 참고 자료
+      description: 관련 이슈·문서 링크
+      placeholder: https://... / #이슈번호

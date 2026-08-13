@@ -1,0 +1,25 @@
+# Gradle build
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+
+# Git / CI / docs (not needed in image)
+.git/
+.github/
+docs/
+*.md
+
+# Local secrets & hooks
+.env
+scripts/
+
+# Tests (image build uses -x test)
+src/test/

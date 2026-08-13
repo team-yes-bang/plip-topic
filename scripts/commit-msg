@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# Git commit-msg hook — validates GIT_CONVENTION.md commit format
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(head -n1 "$COMMIT_MSG_FILE")
+
+PATTERN="^(Feature|Fix|Refactor|Style|Docs|Chore): .+"
+
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+	echo ""
+	echo "[Commit Failed] 커밋 메시지 컨벤션을 지켜주세요."
+	echo "예시: Feature: 아지트 생성 API 추가"
+	echo "허용 Type: Feature, Fix, Refactor, Style, Docs, Chore"
+	echo ""
+	exit 1
+fi

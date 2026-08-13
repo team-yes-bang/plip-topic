@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: template # Eureka 등록명 — 소문자·하이픈 (예: agit-service)
+  profiles:
+    active: local
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+
+eureka:
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 5
+    lease-expiration-duration-in-seconds: 10
+  client:
+    enabled: true # 공통(dev 등) 기본 연동. local/docker 프로필에서 false
+    register-with-eureka: true
+    fetch-registry: true

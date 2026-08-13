@@ -1,0 +1,39 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: plip-template-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-plip_template}
+    ports:
+      - "3308:3306"
+    volumes:
+      - plip_template_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+#  app:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#    container_name: plip-template-app
+#    restart: unless-stopped
+#    depends_on:
+#      mysql:
+#        condition: service_healthy
+#    environment:
+#      SPRING_PROFILES_ACTIVE: docker
+#      DB_USERNAME: ${DB_USERNAME:-root}
+#      DB_PASSWORD: ${DB_PASSWORD}
+#      SERVER_PORT: ${SERVER_PORT:-8080}
+#      MYSQL_DATABASE: ${MYSQL_DATABASE:-plip_template}
+#    ports:
+#      - "${SERVER_PORT:-8080}:${SERVER_PORT:-8080}"
+
+volumes:
+  plip_template_mysql_data:

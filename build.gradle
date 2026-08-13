@@ -1,0 +1,98 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.0.7'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'com.github.jakemarsden.git-hooks' version '0.0.2'
+}
+
+group = 'com.plip'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+ext {
+	set('springCloudVersion', "2025.1.2")
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-api:3.0.2'
+	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+	compileOnly 'org.projectlombok:lombok'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testCompileOnly 'org.projectlombok:lombok'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+	}
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+sourceSets {
+	test {
+		java {
+			// 💡 test 아래 샘플 패키지 전체를 컴파일·테스트 실행 대상에서 제외
+			exclude '**/com/sample/**'
+		}
+	}
+}
+
+// push 직전에만 테스트 (커밋 시에는 빌드/테스트 하지 않음)
+gitHooks {
+	hooks = [
+		'pre-push': 'test'
+	]
+}
+
+// commit-msg 훅 설치 (메시지 컨벤션 검증) — compileJava 시 자동 반영
+tasks.register('installGitHooks', Copy) {
+	description = 'Install commit-msg hook into .git/hooks'
+	from layout.projectDirectory.file('scripts/commit-msg')
+	into layout.projectDirectory.dir('.git/hooks')
+	filePermissions {
+		user {
+			read = true
+			write = true
+			execute = true
+		}
+		group {
+			read = true
+			execute = true
+		}
+		other {
+			read = true
+			execute = true
+		}
+	}
+	doLast {
+		// 이전 pre-commit(compileJava) 훅이 남아 있으면 제거
+		def preCommit = layout.projectDirectory.file('.git/hooks/pre-commit').asFile
+		if (preCommit.exists() && preCommit.text.contains('compileJava')) {
+			preCommit.delete()
+		}
+	}
+}
+
+tasks.named('compileJava') {
+	dependsOn 'installGitHooks'
+}

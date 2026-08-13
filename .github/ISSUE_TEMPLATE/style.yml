@@ -1,0 +1,40 @@
+name: Style
+description: 동작 변경 없이 포맷·네이밍·코드 스타일을 정리합니다.
+title: "[Style] "
+labels:
+  - Style
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        유형·제목·PR 규칙은 레포 루트 `GIT_CONVENTION.md`를 참고하세요.
+        비즈니스 동작이나 API 스펙이 바뀌면 Feature / Fix / Refactor를 사용하세요.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 변경 내용
+      description: 정리할 스타일·네이밍·포맷을 작성해주세요.
+      placeholder: 예) DTO 필드 네이밍 통일, import 정리, 불필요 공백 제거
+    validations:
+      required: true
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: 작업할 내용
+      description: 작업할 내용을 체크박스로 작성해주세요.
+      value: |
+        - [ ]
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+
+  - type: textarea
+    id: reference
+    attributes:
+      label: 참고 자료
+      description: 컨벤션 문서·관련 이슈 링크
+      placeholder: DEVELOPMENT_GUIDE.md, #이슈번호 등

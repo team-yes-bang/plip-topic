@@ -1,0 +1,50 @@
+name: Feature
+description: 새로운 기능 또는 API를 추가합니다.
+title: "[Feature] "
+labels:
+  - Feature
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        유형·제목·PR 규칙은 레포 루트 `GIT_CONVENTION.md`를 참고하세요.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 설명
+      description: 추가할 기능과 배경을 작성해주세요.
+      placeholder: 예) 아지트 생성 API — 이름·설명으로 아지트를 생성한다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: 작업할 내용
+      description: 할 일을 체크박스로 나눠 주세요.
+      value: |
+        - [ ] UseCase / Service 구현
+        - [ ] Adapter (web / persistence) 구현
+        - [ ] 테스트 (`./gradlew test`)
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 완료 조건
+      description: 이 이슈를 닫을 수 있는 조건입니다.
+      placeholder: |
+        - POST /api/v1/... 가 201을 반환한다
+        - Develop PC Gateway Swagger에서 엔드포인트 확인 (http://192.168.10.144:8000/swagger-ui/index.html)
+    validations:
+      required: false
+
+  - type: textarea
+    id: reference
+    attributes:
+      label: 참고 자료
+      description: 관련 문서·이슈·Figma·Notion 링크
+      placeholder: https://...
