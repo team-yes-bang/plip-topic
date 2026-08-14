@@ -66,14 +66,18 @@ class TopicPersistenceAdapterTest {
 	}
 
 	@Test
-	void findAllByAgitUuid_returnsOnlyThatAgit() {
+	void findAllByAgitUuid_returnsOnlyThatAgitOrderedByStartAtDesc() {
 		UUID agitUuid = UUID.randomUUID();
-		topicPersistencePort.save(Topic.create(agitUuid, UUID.randomUUID(), "A", null, null, List.of()));
-		topicPersistencePort.save(Topic.create(agitUuid, UUID.randomUUID(), "B", null, null, List.of()));
-		topicPersistencePort.save(Topic.create(UUID.randomUUID(), UUID.randomUUID(), "C", null, null, List.of()));
+		UUID creatorUuid = UUID.randomUUID();
+		topicPersistencePort.save(Topic.create(
+				agitUuid, creatorUuid, "old", LocalDateTime.of(2026, 8, 1, 0, 0), null, List.of()));
+		topicPersistencePort.save(Topic.create(
+				agitUuid, creatorUuid, "new", LocalDateTime.of(2026, 8, 14, 0, 0), null, List.of()));
+		topicPersistencePort.save(Topic.create(
+				UUID.randomUUID(), creatorUuid, "other", LocalDateTime.of(2026, 8, 20, 0, 0), null, List.of()));
 
 		List<Topic> found = topicPersistencePort.findAllByAgitUuid(agitUuid);
 
-		assertThat(found).extracting(Topic::getTitle).containsExactlyInAnyOrder("A", "B");
+		assertThat(found).extracting(Topic::getTitle).containsExactly("new", "old");
 	}
 }

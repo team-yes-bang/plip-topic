@@ -84,26 +84,57 @@ class TopicEntityJpaTest {
 	}
 
 	@Test
-	void findAllByAgitUuid_returnsOnlyActiveTopicsOfThatAgit() {
+	void findAllByAgitUuid_returnsActiveTopicsOrderedByStartAtDesc() {
 		UUID agitA = UUID.randomUUID();
 		UUID agitB = UUID.randomUUID();
-		topicJpaRepository.saveAndFlush(newTopic("A-1", agitA));
-		topicJpaRepository.saveAndFlush(newTopic("A-2", agitA));
-		topicJpaRepository.saveAndFlush(newTopic("B-1", agitB));
+		topicJpaRepository.saveAndFlush(newTopic("A-old", agitA, LocalDateTime.of(2026, 8, 1, 0, 0)));
+		topicJpaRepository.saveAndFlush(newTopic("A-new", agitA, LocalDateTime.of(2026, 8, 14, 0, 0)));
+		topicJpaRepository.saveAndFlush(newTopic("A-mid", agitA, LocalDateTime.of(2026, 8, 10, 0, 0)));
+		TopicEntity deleted = topicJpaRepository.saveAndFlush(
+				newTopic("A-deleted", agitA, LocalDateTime.of(2026, 8, 20, 0, 0)));
+		deleted.softDelete(LocalDateTime.now());
+		topicJpaRepository.saveAndFlush(deleted);
+		topicJpaRepository.saveAndFlush(newTopic("B-1", agitB, LocalDateTime.of(2026, 8, 14, 0, 0)));
 		entityManager.clear();
 
 		assertThat(topicJpaRepository.findAllByAgitUuidAndDeletedAtIsNullOrderByStartAtDesc(agitA))
 				.extracting(TopicEntity::getTitle)
-				.containsExactlyInAnyOrder("A-1", "A-2");
+				.containsExactly("A-new", "A-mid", "A-old");
+	}
+
+	@Test
+	void findByTopicUuid_excludesSoftDeletedVideos() {
+		UUID activeVideo = UUID.randomUUID();
+		UUID deletedVideo = UUID.randomUUID();
+		TopicEntity topic = newTopic("영상 토픽", UUID.randomUUID());
+		topic.addVideo(activeVideo);
+		topic.addVideo(deletedVideo);
+		topicJpaRepository.saveAndFlush(topic);
+
+		topic.getVideos().stream()
+				.filter(video -> video.getVideoUuid().equals(deletedVideo))
+				.forEach(video -> video.softDelete(LocalDateTime.now()));
+		topicJpaRepository.saveAndFlush(topic);
+		entityManager.clear();
+
+		TopicEntity found = topicJpaRepository.findByTopicUuidAndDeletedAtIsNull(topic.getTopicUuid())
+				.orElseThrow();
+
+		assertThat(found.getVideos()).extracting(TopicVideoEntity::getVideoUuid)
+				.containsExactly(activeVideo);
 	}
 
 	private TopicEntity newTopic(String title, UUID agitUuid) {
+		return newTopic(title, agitUuid, LocalDateTime.of(2026, 8, 14, 0, 0));
+	}
+
+	private TopicEntity newTopic(String title, UUID agitUuid, LocalDateTime startAt) {
 		return TopicEntity.builder()
 				.topicUuid(UUID.randomUUID())
 				.agitUuid(agitUuid)
 				.creatorUuid(UUID.randomUUID())
 				.title(title)
-				.startAt(LocalDateTime.of(2026, 8, 14, 0, 0))
+				.startAt(startAt)
 				.layout("grid")
 				.build();
 	}

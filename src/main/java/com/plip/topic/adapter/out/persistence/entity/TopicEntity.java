@@ -27,10 +27,10 @@ import java.util.UUID;
 @Table(
 		name = "topic",
 		uniqueConstraints = @UniqueConstraint(name = "uk_topic_uuid", columnNames = "topic_uuid"),
-		indexes = {
-				@Index(name = "idx_topic_agit_uuid", columnList = "agit_uuid"),
-				@Index(name = "idx_topic_start_at", columnList = "start_at")
-		}
+		indexes = @Index(
+				name = "idx_topic_agit_deleted_start",
+				columnList = "agit_uuid, deleted_at, start_at"
+		)
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class TopicEntity extends BaseTimeEntity {
