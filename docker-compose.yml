@@ -1,3 +1,14 @@
+# 로컬에서 도커로 개발할 때 사용하는 파일입니다.
+# 순수 서비스 전용 docker-compose.app.yml 파일을 `include`합니다.
+# 서비스 외 도커로 띄울 인프라 등은 이곳에 설정합니다.
+
+include:
+  - docker-compose.app.yml
+
+networks:
+  plip-net:
+    driver: bridge
+
 services:
   mysql:
     image: mysql:8.4
@@ -16,24 +27,18 @@ services:
       timeout: 5s
       retries: 20
       start_period: 20s
+    networks:
+      - plip-net
 
-#  app:
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
-#    container_name: plip-topic-app
-#    restart: unless-stopped
-#    depends_on:
-#      mysql:
-#        condition: service_healthy
-#    environment:
-#      SPRING_PROFILES_ACTIVE: docker
-#      DB_USERNAME: ${DB_USERNAME:-root}
-#      DB_PASSWORD: ${DB_PASSWORD}
-#      SERVER_PORT: ${SERVER_PORT:-8804}
-#      MYSQL_DATABASE: ${MYSQL_DATABASE:-plip_topic}
-#    ports:
-#      - "${SERVER_PORT:-8804}:${SERVER_PORT:-8804}"
+  # 만약 로컬에서 앱을 실행할 때 의존성(Eureka 연동 등)이 필요없다면, 다음 주석을 해제하세요.
+  # topic:
+  #   depends_on: !reset
+  #     mysql:
+  #       condition: service_healthy
+  #   environment:
+  #     EUREKA_CLIENT_ENABLED: "false"
+  #   ports:
+  #     - "${SERVER_PORT:-8804}:8080"
 
 volumes:
   plip_topic_mysql_data:
