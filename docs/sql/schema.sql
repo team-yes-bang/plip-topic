@@ -13,8 +13,7 @@ CREATE TABLE topic (
     updated_at   DATETIME(6) NOT NULL,
     deleted_at   DATETIME(6) NULL,
     UNIQUE KEY uk_topic_uuid (topic_uuid),
-    KEY idx_topic_agit_uuid (agit_uuid),
-    KEY idx_topic_start_at (start_at)
+    KEY idx_topic_agit_deleted_start (agit_uuid, deleted_at, start_at) COMMENT 'agit 목록: agit_uuid + deleted_at IS NULL + start_at DESC'
 );
 
 CREATE TABLE topic_video (

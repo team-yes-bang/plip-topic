@@ -3,6 +3,8 @@ package com.plip.topic.adapter.out.persistence.repository;
 import com.plip.topic.adapter.out.persistence.entity.TopicEntity;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -11,8 +13,19 @@ import java.util.UUID;
 public interface TopicJpaRepository extends JpaRepository<TopicEntity, Long> {
 
 	@EntityGraph(attributePaths = "videos")
-	Optional<TopicEntity> findByTopicUuidAndDeletedAtIsNull(UUID topicUuid);
+	@Query("""
+			SELECT t FROM TopicEntity t
+			WHERE t.topicUuid = :topicUuid
+			  AND t.deletedAt IS NULL
+			""")
+	Optional<TopicEntity> findByTopicUuidAndDeletedAtIsNull(@Param("topicUuid") UUID topicUuid);
 
 	@EntityGraph(attributePaths = "videos")
-	List<TopicEntity> findAllByAgitUuidAndDeletedAtIsNullOrderByStartAtDesc(UUID agitUuid);
+	@Query("""
+			SELECT DISTINCT t FROM TopicEntity t
+			WHERE t.agitUuid = :agitUuid
+			  AND t.deletedAt IS NULL
+			ORDER BY t.startAt DESC
+			""")
+	List<TopicEntity> findAllByAgitUuidAndDeletedAtIsNullOrderByStartAtDesc(@Param("agitUuid") UUID agitUuid);
 }
