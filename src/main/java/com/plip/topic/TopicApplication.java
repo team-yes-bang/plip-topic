@@ -1,13 +1,13 @@
-package com.plip.template;
+package com.plip.topic;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class TemplateApplication {
+public class TopicApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(TemplateApplication.class, args);
+		SpringApplication.run(TopicApplication.class, args);
 	}
 
 }

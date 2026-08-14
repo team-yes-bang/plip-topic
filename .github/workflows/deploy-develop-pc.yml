@@ -27,6 +27,15 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
+      - name: Verify DEVELOP_ENV_PAT
+        env:
+          DEVELOP_ENV_PAT: ${{ secrets.DEVELOP_ENV_PAT }}
+        run: |
+          if [ -z "$DEVELOP_ENV_PAT" ]; then
+            echo "::error::DEVELOP_ENV_PAT is empty. Grant the org secret to plip-topic (Settings → Secrets and variables → Actions), or ask infra to add this repo to the secret's selected repositories."
+            exit 1
+          fi
+
       - name: Trigger develop PC deploy
         uses: peter-evans/repository-dispatch@v3
         with:
@@ -35,7 +44,7 @@ jobs:
           event-type: deploy-service
           client-payload: |
             {
-              "service": "template",
+              "service": "topic",
               "sha": "${{ github.sha }}",
               "repo": "${{ github.repository }}"
             }

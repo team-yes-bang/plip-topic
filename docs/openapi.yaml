@@ -1,15 +1,20 @@
 openapi: 3.1.0
 info:
-  title: OpenAPI definition
-  version: v0
+  title: Topic Service API
+  description: 아지트 토픽·태그 API
+  version: v1.0.0
 servers:
 - url: http://localhost
   description: Generated server url
+tags:
+- name: Health
+  description: 서비스 기동 확인
 paths:
   /api/test:
     get:
       tags:
-      - test-controller
+      - Health
+      summary: 로컬 기동 확인
       operationId: test
       responses:
         "200":
