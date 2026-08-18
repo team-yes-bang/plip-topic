@@ -82,6 +82,29 @@ public class Topic {
 				.build();
 	}
 
+	public Topic update(String title, LocalDateTime startAt, String layout) {
+		if (isDeleted()) {
+			throw new IllegalArgumentException("삭제된 토픽은 수정할 수 없습니다.");
+		}
+		String nextTitle = title != null ? title : this.title;
+		LocalDateTime nextStartAt = startAt != null ? startAt : this.startAt;
+		String nextLayout = layout != null ? layout : this.layout;
+		validateTitle(nextTitle);
+		validateLayout(nextLayout);
+		return Topic.builder()
+				.topicUuid(this.topicUuid)
+				.agitUuid(this.agitUuid)
+				.creatorUuid(this.creatorUuid)
+				.title(nextTitle)
+				.startAt(nextStartAt)
+				.layout(nextLayout)
+				.videos(this.videos)
+				.createdAt(this.createdAt)
+				.updatedAt(this.updatedAt)
+				.deletedAt(this.deletedAt)
+				.build();
+	}
+
 	public Topic softDelete(LocalDateTime deletedAt) {
 		if (deletedAt == null) {
 			throw new IllegalArgumentException("deletedAt은 필수입니다.");
