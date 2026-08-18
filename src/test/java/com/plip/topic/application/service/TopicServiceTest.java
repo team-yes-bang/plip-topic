@@ -2,6 +2,7 @@ package com.plip.topic.application.service;
 
 import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
 import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
+import com.plip.topic.application.port.out.TopicCreatedEventPort;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
 import com.plip.topic.application.port.out.TopicVideoEventPort;
@@ -37,6 +38,9 @@ class TopicServiceTest {
 
 	@Mock
 	private TopicVideoEventPort topicVideoEventPort;
+
+	@Mock
+	private TopicCreatedEventPort topicCreatedEventPort;
 
 	@InjectMocks
 	private TopicService topicService;
@@ -118,6 +122,7 @@ class TopicServiceTest {
 		verify(topicPersistencePort).save(any(Topic.class));
 		verify(topicReadCachePort).evict(agitUuid, startAt.toLocalDate());
 		verify(topicVideoEventPort).publishAttached(result.getTopicUuid(), agitUuid, videoUuid, creatorUuid);
+		verify(topicCreatedEventPort).publishCreated(any(Topic.class));
 	}
 
 	@Test
@@ -131,6 +136,7 @@ class TopicServiceTest {
 				.build());
 
 		verify(topicVideoEventPort, never()).publishAttached(any(), any(), any(), any());
+		verify(topicCreatedEventPort).publishCreated(any(Topic.class));
 	}
 
 	@Test
