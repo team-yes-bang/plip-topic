@@ -24,3 +24,14 @@ CREATE TABLE topic_video (
     UNIQUE KEY uk_topic_video (topic_id, video_uuid),
     CONSTRAINT fk_topic_video_topic FOREIGN KEY (topic_id) REFERENCES topic (id)
 );
+
+CREATE TABLE topic_calendar_day (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    agit_uuid     BINARY(16) NOT NULL COMMENT '아지트 서비스 논리적 참조 (no FK)',
+    calendar_day  DATE NOT NULL,
+    topic_count   INT NOT NULL DEFAULT 0,
+    video_count   INT NOT NULL DEFAULT 0 COMMENT '0이면 캘린더 비활성',
+    created_at    DATETIME(6) NOT NULL,
+    updated_at    DATETIME(6) NOT NULL,
+    UNIQUE KEY uk_topic_calendar_agit_day (agit_uuid, calendar_day)
+);

@@ -2,26 +2,32 @@ package com.plip.topic.application.service;
 
 import com.plip.topic.application.port.in.CreateTopicUseCase;
 import com.plip.topic.application.port.in.DeleteTopicUseCase;
+import com.plip.topic.application.port.in.GetTopicCalendarUseCase;
 import com.plip.topic.application.port.in.ListTopicsUseCase;
 import com.plip.topic.application.port.in.UpdateTopicUseCase;
 import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
+import com.plip.topic.application.port.in.dto.TopicCalendarResult;
 import com.plip.topic.application.port.in.dto.TopicResult;
 import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
 import com.plip.topic.application.port.out.TopicPersistencePort;
+import com.plip.topic.application.port.out.TopicReadCachePort;
 import com.plip.topic.domain.model.Topic;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class TopicService implements ListTopicsUseCase, CreateTopicUseCase, UpdateTopicUseCase, DeleteTopicUseCase {
+public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase, CreateTopicUseCase, UpdateTopicUseCase, DeleteTopicUseCase {
 
 	private final TopicPersistencePort topicPersistencePort;
+	private final TopicReadCachePort topicReadCachePort;
 
 	@Override
 	@Transactional
@@ -33,6 +39,7 @@ public class TopicService implements ListTopicsUseCase, CreateTopicUseCase, Upda
 				request.getStartAt(),
 				request.getVideoUuids()
 		));
+		topicReadCachePort.evict(saved.getAgitUuid(), saved.getStartAt().toLocalDate());
 		return TopicResult.from(saved);
 	}
 
@@ -44,8 +51,15 @@ public class TopicService implements ListTopicsUseCase, CreateTopicUseCase, Upda
 		}
 		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
+		LocalDate oldDay = topic.getStartAt().toLocalDate();
 		Topic updated = topic.update(request.getTitle(), request.getStartAt());
-		return TopicResult.from(topicPersistencePort.update(updated));
+		Topic saved = topicPersistencePort.update(updated);
+		LocalDate newDay = saved.getStartAt().toLocalDate();
+		topicReadCachePort.evict(saved.getAgitUuid(), oldDay);
+		if (!oldDay.equals(newDay)) {
+			topicReadCachePort.evict(saved.getAgitUuid(), newDay);
+		}
+		return TopicResult.from(saved);
 	}
 
 	@Override
@@ -58,15 +72,45 @@ public class TopicService implements ListTopicsUseCase, CreateTopicUseCase, Upda
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
 		topic.assertDeletable();
 		topicPersistencePort.deleteByTopicUuid(topicUuid);
+		topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
 	}
 
 	@Override
-	public List<TopicResult> listByAgitUuid(UUID agitUuid) {
+	public List<TopicResult> listByAgitUuidAndDate(UUID agitUuid, LocalDate date) {
 		if (agitUuid == null) {
 			throw new IllegalArgumentException("agitUuid는 필수입니다.");
 		}
-		return topicPersistencePort.findAllByAgitUuid(agitUuid).stream()
-				.map(TopicResult::from)
-				.toList();
+		if (date == null) {
+			throw new IllegalArgumentException("date는 필수입니다.");
+		}
+		return topicReadCachePort.getDayTopics(agitUuid, date)
+				.orElseGet(() -> {
+					List<TopicResult> results = topicPersistencePort.findAllByAgitUuidAndDate(agitUuid, date).stream()
+							.map(TopicResult::from)
+							.toList();
+					topicReadCachePort.putDayTopics(agitUuid, date, results);
+					return results;
+				});
+	}
+
+	@Override
+	public TopicCalendarResult getCalendar(UUID agitUuid, YearMonth yearMonth) {
+		if (agitUuid == null) {
+			throw new IllegalArgumentException("agitUuid는 필수입니다.");
+		}
+		if (yearMonth == null) {
+			throw new IllegalArgumentException("yearMonth는 필수입니다.");
+		}
+		List<LocalDate> activeDates = topicReadCachePort.getCalendar(agitUuid, yearMonth)
+				.orElseGet(() -> {
+					List<LocalDate> dates = topicPersistencePort.findActiveDates(agitUuid, yearMonth);
+					topicReadCachePort.putCalendar(agitUuid, yearMonth, dates);
+					return dates;
+				});
+		return TopicCalendarResult.builder()
+				.agitUuid(agitUuid)
+				.yearMonth(yearMonth)
+				.activeDates(activeDates)
+				.build();
 	}
 }

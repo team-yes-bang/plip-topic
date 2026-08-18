@@ -25,7 +25,13 @@ public interface TopicJpaRepository extends JpaRepository<TopicEntity, Long> {
 			SELECT DISTINCT t FROM TopicEntity t
 			WHERE t.agitUuid = :agitUuid
 			  AND t.deletedAt IS NULL
+			  AND t.startAt >= :from
+			  AND t.startAt < :to
 			ORDER BY t.startAt DESC
 			""")
-	List<TopicEntity> findAllByAgitUuidAndDeletedAtIsNullOrderByStartAtDesc(@Param("agitUuid") UUID agitUuid);
+	List<TopicEntity> findAllByAgitUuidAndStartAtRange(
+			@Param("agitUuid") UUID agitUuid,
+			@Param("from") java.time.LocalDateTime from,
+			@Param("to") java.time.LocalDateTime to
+	);
 }

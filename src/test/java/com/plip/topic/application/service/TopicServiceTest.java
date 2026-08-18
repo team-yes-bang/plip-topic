@@ -3,6 +3,7 @@ package com.plip.topic.application.service;
 import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
 import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
 import com.plip.topic.application.port.out.TopicPersistencePort;
+import com.plip.topic.application.port.out.TopicReadCachePort;
 import com.plip.topic.domain.model.Topic;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -10,7 +11,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,13 +31,17 @@ class TopicServiceTest {
 	@Mock
 	private TopicPersistencePort topicPersistencePort;
 
+	@Mock
+	private TopicReadCachePort topicReadCachePort;
+
 	@InjectMocks
 	private TopicService topicService;
 
 	@Test
-	void listByAgitUuid_mapsPersistedTopics() {
+	void listByAgitUuidAndDate_mapsPersistedTopics() {
 		UUID agitUuid = UUID.randomUUID();
 		UUID videoUuid = UUID.randomUUID();
+		LocalDate date = LocalDate.of(2026, 8, 14);
 		Topic topic = Topic.create(
 				agitUuid,
 				UUID.randomUUID(),
@@ -42,21 +49,44 @@ class TopicServiceTest {
 				LocalDateTime.of(2026, 8, 14, 0, 0),
 				List.of(videoUuid)
 		);
-		given(topicPersistencePort.findAllByAgitUuid(agitUuid)).willReturn(List.of(topic));
+		given(topicReadCachePort.getDayTopics(agitUuid, date)).willReturn(Optional.empty());
+		given(topicPersistencePort.findAllByAgitUuidAndDate(agitUuid, date)).willReturn(List.of(topic));
 
-		var results = topicService.listByAgitUuid(agitUuid);
+		var results = topicService.listByAgitUuidAndDate(agitUuid, date);
 
 		assertThat(results).hasSize(1);
 		assertThat(results.get(0).getTitle()).isEqualTo("주말 모임");
 		assertThat(results.get(0).getAgitUuid()).isEqualTo(agitUuid);
 		assertThat(results.get(0).getVideoUuids()).containsExactly(videoUuid);
+		verify(topicReadCachePort).putDayTopics(agitUuid, date, results);
 	}
 
 	@Test
-	void listByAgitUuid_requiresAgitUuid() {
-		assertThatThrownBy(() -> topicService.listByAgitUuid(null))
+	void listByAgitUuidAndDate_requiresAgitUuid() {
+		assertThatThrownBy(() -> topicService.listByAgitUuidAndDate(null, LocalDate.of(2026, 8, 14)))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("agitUuid는 필수입니다.");
+	}
+
+	@Test
+	void listByAgitUuidAndDate_requiresDate() {
+		assertThatThrownBy(() -> topicService.listByAgitUuidAndDate(UUID.randomUUID(), null))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("date는 필수입니다.");
+	}
+
+	@Test
+	void getCalendar_returnsActiveDates() {
+		UUID agitUuid = UUID.randomUUID();
+		YearMonth yearMonth = YearMonth.of(2026, 8);
+		List<LocalDate> dates = List.of(LocalDate.of(2026, 8, 14));
+		given(topicReadCachePort.getCalendar(agitUuid, yearMonth)).willReturn(Optional.empty());
+		given(topicPersistencePort.findActiveDates(agitUuid, yearMonth)).willReturn(dates);
+
+		var result = topicService.getCalendar(agitUuid, yearMonth);
+
+		assertThat(result.getActiveDates()).containsExactly(LocalDate.of(2026, 8, 14));
+		verify(topicReadCachePort).putCalendar(agitUuid, yearMonth, dates);
 	}
 
 	@Test

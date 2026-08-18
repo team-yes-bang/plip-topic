@@ -30,6 +30,15 @@ services:
     networks:
       - plip-net
 
+  redis:
+    image: redis:7-alpine
+    container_name: plip-topic-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - plip-net
+
   # 만약 로컬에서 앱을 실행할 때 의존성(Eureka 연동 등)이 필요없다면, 다음 주석을 해제하세요.
   # topic:
   #   depends_on: !reset

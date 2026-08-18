@@ -88,7 +88,7 @@ class TopicPersistenceAdapterTest {
 	}
 
 	@Test
-	void findAllByAgitUuid_returnsOnlyThatAgitOrderedByStartAtDesc() {
+	void findAllByAgitUuidAndDate_returnsThatDayOnly() {
 		UUID agitUuid = UUID.randomUUID();
 		UUID creatorUuid = UUID.randomUUID();
 		topicPersistencePort.save(Topic.create(
@@ -96,10 +96,24 @@ class TopicPersistenceAdapterTest {
 		topicPersistencePort.save(Topic.create(
 				agitUuid, creatorUuid, "new", LocalDateTime.of(2026, 8, 14, 0, 0), List.of()));
 		topicPersistencePort.save(Topic.create(
-				UUID.randomUUID(), creatorUuid, "other", LocalDateTime.of(2026, 8, 20, 0, 0), List.of()));
+				UUID.randomUUID(), creatorUuid, "other", LocalDateTime.of(2026, 8, 14, 0, 0), List.of()));
 
-		List<Topic> found = topicPersistencePort.findAllByAgitUuid(agitUuid);
+		List<Topic> found = topicPersistencePort.findAllByAgitUuidAndDate(agitUuid, java.time.LocalDate.of(2026, 8, 14));
 
-		assertThat(found).extracting(Topic::getTitle).containsExactly("new", "old");
+		assertThat(found).extracting(Topic::getTitle).containsExactly("new");
+	}
+
+	@Test
+	void findActiveDates_returnsDaysWithVideosOnly() {
+		UUID agitUuid = UUID.randomUUID();
+		UUID creatorUuid = UUID.randomUUID();
+		topicPersistencePort.save(Topic.create(
+				agitUuid, creatorUuid, "영상", LocalDateTime.of(2026, 8, 14, 0, 0), List.of(UUID.randomUUID())));
+		topicPersistencePort.save(Topic.create(
+				agitUuid, creatorUuid, "빈 토픽", LocalDateTime.of(2026, 8, 15, 0, 0), List.of()));
+
+		List<java.time.LocalDate> dates = topicPersistencePort.findActiveDates(agitUuid, java.time.YearMonth.of(2026, 8));
+
+		assertThat(dates).containsExactly(java.time.LocalDate.of(2026, 8, 14));
 	}
 }

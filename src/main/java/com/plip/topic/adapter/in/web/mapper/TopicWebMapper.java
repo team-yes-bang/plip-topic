@@ -1,9 +1,11 @@
 package com.plip.topic.adapter.in.web.mapper;
 
 import com.plip.topic.adapter.in.web.dto.CreateTopicRequest;
+import com.plip.topic.adapter.in.web.dto.TopicCalendarResponse;
 import com.plip.topic.adapter.in.web.dto.TopicResponseDto;
 import com.plip.topic.adapter.in.web.dto.UpdateTopicRequest;
 import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
+import com.plip.topic.application.port.in.dto.TopicCalendarResult;
 import com.plip.topic.application.port.in.dto.TopicResult;
 import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
 import org.springframework.stereotype.Component;
@@ -44,5 +46,13 @@ public class TopicWebMapper {
 
 	public List<TopicResponseDto> toDtoList(List<TopicResult> results) {
 		return results.stream().map(this::toDto).toList();
+	}
+
+	public TopicCalendarResponse toCalendarDto(TopicCalendarResult result) {
+		return TopicCalendarResponse.builder()
+				.agitUuid(result.getAgitUuid())
+				.yearMonth(result.getYearMonth().toString())
+				.activeDates(result.getActiveDates())
+				.build();
 	}
 }
