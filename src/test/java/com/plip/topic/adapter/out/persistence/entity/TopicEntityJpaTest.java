@@ -97,7 +97,11 @@ class TopicEntityJpaTest {
 		topicJpaRepository.saveAndFlush(newTopic("B-1", agitB, LocalDateTime.of(2026, 8, 14, 0, 0)));
 		entityManager.clear();
 
-		assertThat(topicJpaRepository.findAllByAgitUuidAndDeletedAtIsNullOrderByStartAtDesc(agitA))
+		assertThat(topicJpaRepository.findAllByAgitUuidAndStartAtRange(
+				agitA,
+				LocalDateTime.of(2026, 8, 1, 0, 0),
+				LocalDateTime.of(2026, 9, 1, 0, 0)
+		))
 				.extracting(TopicEntity::getTitle)
 				.containsExactly("A-new", "A-mid", "A-old");
 	}

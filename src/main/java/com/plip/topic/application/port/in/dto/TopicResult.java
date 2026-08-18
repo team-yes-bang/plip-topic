@@ -4,6 +4,7 @@ import com.plip.topic.domain.model.Topic;
 import com.plip.topic.domain.model.TopicVideo;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.extern.jackson.Jacksonized;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.UUID;
 
 @Getter
 @Builder
+@Jacksonized
 public class TopicResult {
 
 	private UUID topicUuid;

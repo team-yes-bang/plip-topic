@@ -6,6 +6,8 @@ spring:
     driver-class-name: org.h2.Driver
   autoconfigure:
     exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.data.redis.autoconfigure.RedisAutoConfiguration
       - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
       - org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration
   jpa:
