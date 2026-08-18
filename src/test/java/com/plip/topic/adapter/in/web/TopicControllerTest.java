@@ -14,7 +14,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -81,5 +83,51 @@ class TopicControllerTest {
 	void list_requiresAgitUuid() throws Exception {
 		mockMvc.perform(get("/api/v1/topics"))
 				.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void create_returnsCreatedTopic() throws Exception {
+		UUID agitUuid = UUID.randomUUID();
+		UUID creatorUuid = UUID.randomUUID();
+		UUID videoUuid = UUID.randomUUID();
+
+		mockMvc.perform(post("/api/v1/topics")
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "agitUuid": "%s",
+								  "creatorUuid": "%s",
+								  "title": "점심 메뉴",
+								  "startAt": "2026-08-18T00:00:00",
+								  "layout": "grid",
+								  "videoUuids": ["%s"]
+								}
+								""".formatted(agitUuid, creatorUuid, videoUuid)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.topicUuid").exists())
+				.andExpect(jsonPath("$.agitUuid").value(agitUuid.toString()))
+				.andExpect(jsonPath("$.creatorUuid").value(creatorUuid.toString()))
+				.andExpect(jsonPath("$.title").value("점심 메뉴"))
+				.andExpect(jsonPath("$.layout").value("grid"))
+				.andExpect(jsonPath("$.videoUuids[0]").value(videoUuid.toString()));
+
+		mockMvc.perform(get("/api/v1/topics").param("agitUuid", agitUuid.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(1))
+				.andExpect(jsonPath("$[0].title").value("점심 메뉴"));
+	}
+
+	@Test
+	void create_requiresAgitUuid() throws Exception {
+		mockMvc.perform(post("/api/v1/topics")
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "creatorUuid": "%s",
+								  "title": "제목"
+								}
+								""".formatted(UUID.randomUUID())))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("agitUuid는 필수입니다."));
 	}
 }
