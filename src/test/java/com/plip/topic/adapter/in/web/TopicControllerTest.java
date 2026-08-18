@@ -16,6 +16,7 @@ import java.util.UUID;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -129,5 +130,42 @@ class TopicControllerTest {
 								""".formatted(UUID.randomUUID())))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value("agitUuid는 필수입니다."));
+	}
+
+	@Test
+	void update_changesTitleAndKeepsLayout() throws Exception {
+		Topic saved = topicPersistencePort.save(Topic.create(
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				"점심 메뉴",
+				LocalDateTime.of(2026, 8, 18, 0, 0),
+				"grid",
+				List.of()
+		));
+
+		mockMvc.perform(patch("/api/v1/topics/{topicUuid}", saved.getTopicUuid())
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "title": "저녁 메뉴"
+								}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.topicUuid").value(saved.getTopicUuid().toString()))
+				.andExpect(jsonPath("$.title").value("저녁 메뉴"))
+				.andExpect(jsonPath("$.layout").value("grid"));
+	}
+
+	@Test
+	void update_returnsBadRequestWhenMissing() throws Exception {
+		mockMvc.perform(patch("/api/v1/topics/{topicUuid}", UUID.randomUUID())
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "title": "제목"
+								}
+								"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("토픽이 존재하지 않습니다."));
 	}
 }

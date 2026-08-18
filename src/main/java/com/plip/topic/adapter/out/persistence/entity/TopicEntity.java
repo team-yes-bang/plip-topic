@@ -91,6 +91,12 @@ public class TopicEntity extends BaseTimeEntity {
 				.build());
 	}
 
+	public void update(String title, LocalDateTime startAt, String layout) {
+		this.title = title;
+		this.startAt = startAt;
+		this.layout = layout;
+	}
+
 	public void softDelete(LocalDateTime deletedAt) {
 		this.deletedAt = deletedAt;
 		this.videos.forEach(video -> video.softDelete(deletedAt));

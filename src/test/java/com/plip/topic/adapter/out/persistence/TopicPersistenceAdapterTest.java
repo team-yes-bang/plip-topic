@@ -48,6 +48,30 @@ class TopicPersistenceAdapterTest {
 	}
 
 	@Test
+	void update_changesTitleAndKeepsLayout() {
+		Topic saved = topicPersistencePort.save(
+				Topic.create(UUID.randomUUID(), UUID.randomUUID(), "점심 메뉴", LocalDateTime.of(2026, 8, 18, 0, 0), "grid", List.of())
+		);
+
+		Topic updated = saved.update("저녁 메뉴", null, null);
+		Topic found = topicPersistencePort.update(updated);
+
+		assertThat(found.getTopicUuid()).isEqualTo(saved.getTopicUuid());
+		assertThat(found.getTitle()).isEqualTo("저녁 메뉴");
+		assertThat(found.getLayout()).isEqualTo("grid");
+		assertThat(found.getStartAt()).isEqualTo(saved.getStartAt());
+	}
+
+	@Test
+	void update_throwsWhenMissing() {
+		Topic missing = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, null, List.of());
+
+		assertThatThrownBy(() -> topicPersistencePort.update(missing))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("토픽이 존재하지 않습니다.");
+	}
+
+	@Test
 	void deleteByTopicUuid_hidesTopicFromFind() {
 		Topic saved = topicPersistencePort.save(
 				Topic.create(UUID.randomUUID(), UUID.randomUUID(), "삭제 대상", null, null, List.of(UUID.randomUUID()))

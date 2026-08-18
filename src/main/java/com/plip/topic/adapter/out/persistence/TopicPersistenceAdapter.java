@@ -45,6 +45,15 @@ public class TopicPersistenceAdapter implements TopicPersistencePort {
 
 	@Override
 	@Transactional
+	public Topic update(Topic topic) {
+		TopicEntity entity = topicJpaRepository.findByTopicUuidAndDeletedAtIsNull(topic.getTopicUuid())
+				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
+		entity.update(topic.getTitle(), topic.getStartAt(), topic.getLayout());
+		return topicPersistenceMapper.toDomain(entity);
+	}
+
+	@Override
+	@Transactional
 	public void deleteByTopicUuid(UUID topicUuid) {
 		TopicEntity entity = topicJpaRepository.findByTopicUuidAndDeletedAtIsNull(topicUuid)
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));

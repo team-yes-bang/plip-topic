@@ -1,6 +1,7 @@
 package com.plip.topic.application.service;
 
 import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
+import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.domain.model.Topic;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -102,5 +104,42 @@ class TopicServiceTest {
 				.build()))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("creatorUuid는 필수입니다.");
+	}
+
+	@Test
+	void update_changesProvidedFields() {
+		Topic existing = Topic.create(
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				"점심 메뉴",
+				LocalDateTime.of(2026, 8, 18, 0, 0),
+				"grid",
+				List.of()
+		);
+		given(topicPersistencePort.findByTopicUuid(existing.getTopicUuid())).willReturn(Optional.of(existing));
+		given(topicPersistencePort.update(any(Topic.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+		var result = topicService.update(existing.getTopicUuid(), UpdateTopicRequestDto.builder()
+				.title("저녁 메뉴")
+				.layout("chain")
+				.build());
+
+		assertThat(result.getTitle()).isEqualTo("저녁 메뉴");
+		assertThat(result.getLayout()).isEqualTo("chain");
+		assertThat(result.getStartAt()).isEqualTo(existing.getStartAt());
+		assertThat(result.getTopicUuid()).isEqualTo(existing.getTopicUuid());
+		verify(topicPersistencePort).update(any(Topic.class));
+	}
+
+	@Test
+	void update_throwsWhenMissing() {
+		UUID topicUuid = UUID.randomUUID();
+		given(topicPersistencePort.findByTopicUuid(topicUuid)).willReturn(Optional.empty());
+
+		assertThatThrownBy(() -> topicService.update(topicUuid, UpdateTopicRequestDto.builder()
+				.title("제목")
+				.build()))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("토픽이 존재하지 않습니다.");
 	}
 }

@@ -63,4 +63,34 @@ class TopicTest {
 		assertThat(deleted.getDeletedAt()).isEqualTo(deletedAt);
 		assertThat(deleted.getTopicUuid()).isEqualTo(topic.getTopicUuid());
 	}
+
+	@Test
+	void update_changesProvidedFieldsAndKeepsOmittedOnes() {
+		Topic topic = Topic.create(
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				"점심 메뉴",
+				LocalDateTime.of(2026, 8, 18, 0, 0),
+				"grid",
+				List.of()
+		);
+
+		Topic updated = topic.update("저녁 메뉴", null, "chain");
+
+		assertThat(updated.getTitle()).isEqualTo("저녁 메뉴");
+		assertThat(updated.getLayout()).isEqualTo("chain");
+		assertThat(updated.getStartAt()).isEqualTo(topic.getStartAt());
+		assertThat(updated.getTopicUuid()).isEqualTo(topic.getTopicUuid());
+		assertThat(updated.getAgitUuid()).isEqualTo(topic.getAgitUuid());
+	}
+
+	@Test
+	void update_rejectsDeletedTopic() {
+		Topic deleted = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, null, List.of())
+				.softDelete(LocalDateTime.now());
+
+		assertThatThrownBy(() -> deleted.update("새 제목", null, null))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("삭제된 토픽은 수정할 수 없습니다.");
+	}
 }

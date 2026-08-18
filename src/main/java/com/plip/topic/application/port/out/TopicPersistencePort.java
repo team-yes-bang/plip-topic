@@ -14,5 +14,7 @@ public interface TopicPersistencePort {
 
 	List<Topic> findAllByAgitUuid(UUID agitUuid);
 
+	Topic update(Topic topic);
+
 	void deleteByTopicUuid(UUID topicUuid);
 }

@@ -2,8 +2,10 @@ package com.plip.topic.adapter.in.web.mapper;
 
 import com.plip.topic.adapter.in.web.dto.CreateTopicRequest;
 import com.plip.topic.adapter.in.web.dto.TopicResponseDto;
+import com.plip.topic.adapter.in.web.dto.UpdateTopicRequest;
 import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
 import com.plip.topic.application.port.in.dto.TopicResult;
+import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -19,6 +21,14 @@ public class TopicWebMapper {
 				.startAt(request.getStartAt())
 				.layout(request.getLayout())
 				.videoUuids(request.getVideoUuids())
+				.build();
+	}
+
+	public UpdateTopicRequestDto toDto(UpdateTopicRequest request) {
+		return UpdateTopicRequestDto.builder()
+				.title(request.getTitle())
+				.startAt(request.getStartAt())
+				.layout(request.getLayout())
 				.build();
 	}
 
