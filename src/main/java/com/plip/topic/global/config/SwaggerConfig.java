@@ -13,7 +13,7 @@ public class SwaggerConfig {
 		return new OpenAPI()
 				.info(new Info()
 						.title("Topic Service API")
-						.description("아지트 토픽·태그 API")
+						.description("아지트 토픽 API")
 						.version("v1.0.0"));
 	}
 }

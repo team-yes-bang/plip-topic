@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Topic Service API
-  description: 아지트 토픽·태그 API
+  description: 아지트 토픽 API
   version: v1.0.0
 servers:
 - url: http://localhost
