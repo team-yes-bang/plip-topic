@@ -59,4 +59,20 @@ public class TopicPersistenceAdapter implements TopicPersistencePort {
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
 		entity.softDelete(LocalDateTime.now());
 	}
+
+	@Override
+	@Transactional
+	public boolean addVideoIfAbsent(UUID topicUuid, UUID videoUuid) {
+		return topicJpaRepository.findByTopicUuidAndDeletedAtIsNull(topicUuid)
+				.map(entity -> {
+					boolean alreadyAttached = entity.getVideos().stream()
+							.anyMatch(video -> videoUuid.equals(video.getVideoUuid()));
+					if (alreadyAttached) {
+						return false;
+					}
+					entity.addVideo(videoUuid);
+					return true;
+				})
+				.orElse(false);
+	}
 }

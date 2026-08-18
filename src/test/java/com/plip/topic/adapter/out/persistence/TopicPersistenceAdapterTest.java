@@ -102,4 +102,37 @@ class TopicPersistenceAdapterTest {
 
 		assertThat(found).extracting(Topic::getTitle).containsExactly("new", "old");
 	}
+
+	@Test
+	void addVideoIfAbsent_appendsNewVideo() {
+		Topic saved = topicPersistencePort.save(
+				Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, List.of())
+		);
+		UUID videoUuid = UUID.randomUUID();
+
+		boolean attached = topicPersistencePort.addVideoIfAbsent(saved.getTopicUuid(), videoUuid);
+		Topic found = topicPersistencePort.findByTopicUuid(saved.getTopicUuid()).orElseThrow();
+
+		assertThat(attached).isTrue();
+		assertThat(found.getVideos()).extracting(video -> video.getVideoUuid()).containsExactly(videoUuid);
+	}
+
+	@Test
+	void addVideoIfAbsent_isIdempotent() {
+		UUID videoUuid = UUID.randomUUID();
+		Topic saved = topicPersistencePort.save(
+				Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, List.of(videoUuid))
+		);
+
+		boolean attached = topicPersistencePort.addVideoIfAbsent(saved.getTopicUuid(), videoUuid);
+
+		assertThat(attached).isFalse();
+		assertThat(topicPersistencePort.findByTopicUuid(saved.getTopicUuid()).orElseThrow().getVideos())
+				.hasSize(1);
+	}
+
+	@Test
+	void addVideoIfAbsent_returnsFalseWhenTopicMissing() {
+		assertThat(topicPersistencePort.addVideoIfAbsent(UUID.randomUUID(), UUID.randomUUID())).isFalse();
+	}
 }

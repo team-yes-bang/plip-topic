@@ -17,4 +17,6 @@ public interface TopicPersistencePort {
 	Topic update(Topic topic);
 
 	void deleteByTopicUuid(UUID topicUuid);
+
+	boolean addVideoIfAbsent(UUID topicUuid, UUID videoUuid);
 }
