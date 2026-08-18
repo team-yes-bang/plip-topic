@@ -8,6 +8,8 @@ spring:
     exclude:
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
       - org.springframework.boot.data.redis.autoconfigure.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      - org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration
   jpa:
     hibernate:
       ddl-auto: create-drop

@@ -84,6 +84,23 @@ public class TopicPersistenceAdapter implements TopicPersistencePort {
 		entity.softDelete(LocalDateTime.now());
 	}
 
+	@Override
+	@Transactional
+	public boolean addVideoIfAbsent(UUID topicUuid, UUID videoUuid) {
+		return topicJpaRepository.findByTopicUuidAndDeletedAtIsNull(topicUuid)
+				.map(entity -> {
+					boolean alreadyAttached = entity.getVideos().stream()
+							.anyMatch(video -> videoUuid.equals(video.getVideoUuid()));
+					if (alreadyAttached) {
+						return false;
+					}
+					entity.addVideo(videoUuid);
+					applyCalendarDelta(entity.getAgitUuid(), entity.getStartAt().toLocalDate(), 0, 1);
+					return true;
+				})
+				.orElse(false);
+	}
+
 	private void applyCalendarDelta(UUID agitUuid, LocalDate day, int topicDelta, int videoDelta) {
 		TopicCalendarDayEntity row = topicCalendarDayJpaRepository.findByAgitUuidAndDay(agitUuid, day)
 				.orElseGet(() -> TopicCalendarDayEntity.create(agitUuid, day));

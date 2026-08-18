@@ -116,4 +116,56 @@ class TopicPersistenceAdapterTest {
 
 		assertThat(dates).containsExactly(java.time.LocalDate.of(2026, 8, 14));
 	}
+
+	@Test
+	void addVideoIfAbsent_appendsNewVideo() {
+		Topic saved = topicPersistencePort.save(
+				Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, List.of())
+		);
+		UUID videoUuid = UUID.randomUUID();
+
+		boolean attached = topicPersistencePort.addVideoIfAbsent(saved.getTopicUuid(), videoUuid);
+		Topic found = topicPersistencePort.findByTopicUuid(saved.getTopicUuid()).orElseThrow();
+
+		assertThat(attached).isTrue();
+		assertThat(found.getVideos()).extracting(video -> video.getVideoUuid()).containsExactly(videoUuid);
+	}
+
+	@Test
+	void addVideoIfAbsent_isIdempotent() {
+		UUID videoUuid = UUID.randomUUID();
+		Topic saved = topicPersistencePort.save(
+				Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, List.of(videoUuid))
+		);
+
+		boolean attached = topicPersistencePort.addVideoIfAbsent(saved.getTopicUuid(), videoUuid);
+
+		assertThat(attached).isFalse();
+		assertThat(topicPersistencePort.findByTopicUuid(saved.getTopicUuid()).orElseThrow().getVideos())
+				.hasSize(1);
+	}
+
+	@Test
+	void addVideoIfAbsent_returnsFalseWhenTopicMissing() {
+		assertThat(topicPersistencePort.addVideoIfAbsent(UUID.randomUUID(), UUID.randomUUID())).isFalse();
+	}
+
+	@Test
+	void addVideoIfAbsent_activatesCalendarDay() {
+		UUID agitUuid = UUID.randomUUID();
+		Topic saved = topicPersistencePort.save(Topic.create(
+				agitUuid,
+				UUID.randomUUID(),
+				"빈 토픽",
+				java.time.LocalDateTime.of(2026, 8, 18, 0, 0),
+				List.of()
+		));
+
+		assertThat(topicPersistencePort.findActiveDates(agitUuid, java.time.YearMonth.of(2026, 8))).isEmpty();
+
+		topicPersistencePort.addVideoIfAbsent(saved.getTopicUuid(), UUID.randomUUID());
+
+		assertThat(topicPersistencePort.findActiveDates(agitUuid, java.time.YearMonth.of(2026, 8)))
+				.containsExactly(java.time.LocalDate.of(2026, 8, 18));
+	}
 }

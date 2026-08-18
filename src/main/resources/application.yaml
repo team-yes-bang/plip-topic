@@ -15,6 +15,17 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: topic-service
+
+app:
+  kafka:
+    topics:
+      video-uploaded: video.uploaded
+      diary-video-bound: diary.video.bound
+      topic-video-attached: topic.video.attached
 
 eureka:
   instance:

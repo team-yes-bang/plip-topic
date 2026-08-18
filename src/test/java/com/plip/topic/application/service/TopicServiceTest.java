@@ -4,6 +4,7 @@ import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
 import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
+import com.plip.topic.application.port.out.TopicVideoEventPort;
 import com.plip.topic.domain.model.Topic;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +34,9 @@ class TopicServiceTest {
 
 	@Mock
 	private TopicReadCachePort topicReadCachePort;
+
+	@Mock
+	private TopicVideoEventPort topicVideoEventPort;
 
 	@InjectMocks
 	private TopicService topicService;
@@ -112,6 +116,21 @@ class TopicServiceTest {
 		assertThat(result.getStartAt()).isEqualTo(startAt);
 		assertThat(result.getVideoUuids()).containsExactly(videoUuid);
 		verify(topicPersistencePort).save(any(Topic.class));
+		verify(topicReadCachePort).evict(agitUuid, startAt.toLocalDate());
+		verify(topicVideoEventPort).publishAttached(result.getTopicUuid(), agitUuid, videoUuid, creatorUuid);
+	}
+
+	@Test
+	void create_doesNotPublishWhenVideosEmpty() {
+		given(topicPersistencePort.save(any(Topic.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+		topicService.create(CreateTopicRequestDto.builder()
+				.agitUuid(UUID.randomUUID())
+				.creatorUuid(UUID.randomUUID())
+				.title("제목")
+				.build());
+
+		verify(topicVideoEventPort, never()).publishAttached(any(), any(), any(), any());
 	}
 
 	@Test

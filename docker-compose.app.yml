@@ -14,6 +14,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      kafka:
+        condition: service_started
       eureka-server:
         condition: service_started
     environment:
@@ -24,6 +26,7 @@ services:
       MYSQL_DATABASE: plip_topic
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://eureka-server:8761/eureka/}
       EUREKA_INSTANCE_HOSTNAME: topic

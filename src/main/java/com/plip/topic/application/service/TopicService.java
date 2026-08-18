@@ -11,10 +11,14 @@ import com.plip.topic.application.port.in.dto.TopicResult;
 import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
+import com.plip.topic.application.port.out.TopicVideoEventPort;
 import com.plip.topic.domain.model.Topic;
+import com.plip.topic.domain.model.TopicVideo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -28,6 +32,7 @@ public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase,
 
 	private final TopicPersistencePort topicPersistencePort;
 	private final TopicReadCachePort topicReadCachePort;
+	private final TopicVideoEventPort topicVideoEventPort;
 
 	@Override
 	@Transactional
@@ -40,6 +45,7 @@ public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase,
 				request.getVideoUuids()
 		));
 		topicReadCachePort.evict(saved.getAgitUuid(), saved.getStartAt().toLocalDate());
+		publishAttachedAfterCommit(saved);
 		return TopicResult.from(saved);
 	}
 
@@ -112,5 +118,30 @@ public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase,
 				.yearMonth(yearMonth)
 				.activeDates(activeDates)
 				.build();
+	}
+
+	private void publishAttachedAfterCommit(Topic saved) {
+		List<UUID> videoUuids = saved.getVideos().stream()
+				.map(TopicVideo::getVideoUuid)
+				.toList();
+		if (videoUuids.isEmpty()) {
+			return;
+		}
+		Runnable publish = () -> videoUuids.forEach(videoUuid -> topicVideoEventPort.publishAttached(
+				saved.getTopicUuid(),
+				saved.getAgitUuid(),
+				videoUuid,
+				saved.getCreatorUuid()
+		));
+		if (TransactionSynchronizationManager.isActualTransactionActive()) {
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public void afterCommit() {
+					publish.run();
+				}
+			});
+			return;
+		}
+		publish.run();
 	}
 }
