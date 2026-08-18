@@ -9,7 +9,129 @@ servers:
 tags:
 - name: Health
   description: 서비스 기동 확인
+- name: Topic
+  description: 토픽 API
 paths:
+  /api/v1/topics:
+    get:
+      tags:
+      - Topic
+      summary: 토픽 목록 조회
+      description: 아지트에 속한 삭제되지 않은 토픽을 진행일 내림차순으로 조회합니다.
+      operationId: list
+      parameters:
+      - name: agitUuid
+        in: query
+        description: 아지트 UUID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Bad Request
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TopicResponseDto"
+    post:
+      tags:
+      - Topic
+      summary: 토픽 생성
+      description: 아지트에 토픽을 생성합니다. 진행일이 없으면 오늘 00:00을 사용합니다.
+      operationId: create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTopicRequest"
+        required: true
+      responses:
+        "400":
+          description: Bad Request
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TopicResponseDto"
+  /api/v1/topics/{topicUuid}:
+    delete:
+      tags:
+      - Topic
+      summary: 토픽 삭제
+      description: 영상이 없는 토픽만 소프트 삭제합니다.
+      operationId: delete
+      parameters:
+      - name: topicUuid
+        in: path
+        description: 토픽 UUID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Bad Request
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "204":
+          description: No Content
+    patch:
+      tags:
+      - Topic
+      summary: 토픽 수정
+      description: "토픽의 제목, 진행일을 수정합니다. 전달하지 않은 필드는 유지됩니다."
+      operationId: update
+      parameters:
+      - name: topicUuid
+        in: path
+        description: 토픽 UUID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTopicRequest"
+        required: true
+      responses:
+        "400":
+          description: Bad Request
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TopicResponseDto"
   /api/test:
     get:
       tags:
@@ -17,10 +139,93 @@ paths:
       summary: 로컬 기동 확인
       operationId: test
       responses:
+        "400":
+          description: Bad Request
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
         "200":
           description: OK
           content:
             '*/*':
               schema:
                 type: string
-components: {}
+components:
+  schemas:
+    CreateTopicRequest:
+      type: object
+      description: 토픽 생성 요청
+      properties:
+        agitUuid:
+          type: string
+          format: uuid
+          description: 아지트 UUID
+        creatorUuid:
+          type: string
+          format: uuid
+          description: 생성자 UUID (임시 body 전달 — 추후 인증에서 추출)
+        title:
+          type: string
+          description: 토픽 제목
+          example: 점심 메뉴
+        startAt:
+          type: string
+          format: date-time
+          description: 진행 날짜. 없으면 오늘 00:00
+        videoUuids:
+          type: array
+          description: 연결할 비디오 UUID 목록
+          items:
+            type: string
+            format: uuid
+      required:
+      - agitUuid
+      - creatorUuid
+    TopicResponseDto:
+      type: object
+      description: 토픽 응답
+      properties:
+        topicUuid:
+          type: string
+          format: uuid
+          description: 토픽 UUID
+        agitUuid:
+          type: string
+          format: uuid
+          description: 아지트 UUID
+        creatorUuid:
+          type: string
+          format: uuid
+          description: 생성자 UUID
+        title:
+          type: string
+          description: 토픽 제목
+        startAt:
+          type: string
+          format: date-time
+          description: 진행 날짜
+        videoUuids:
+          type: array
+          description: 연결된 비디오 UUID 목록
+          items:
+            type: string
+            format: uuid
+        createdAt:
+          type: string
+          format: date-time
+          description: 생성 시각
+    UpdateTopicRequest:
+      type: object
+      description: 토픽 수정 요청. 전달하지 않은 필드는 유지됩니다.
+      properties:
+        title:
+          type: string
+          description: 토픽 제목
+          example: 저녁 메뉴
+        startAt:
+          type: string
+          format: date-time
+          description: 진행 날짜
