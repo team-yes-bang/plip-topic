@@ -10,7 +10,7 @@ import java.util.UUID;
 
 @Getter
 @Builder
-@Schema(description = "토픽 목록 항목")
+@Schema(description = "토픽 응답")
 public class TopicResponseDto {
 
 	@Schema(description = "토픽 UUID")
