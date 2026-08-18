@@ -9,6 +9,7 @@ import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
 import com.plip.topic.application.port.in.dto.TopicCalendarResult;
 import com.plip.topic.application.port.in.dto.TopicResult;
 import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
+import com.plip.topic.application.port.out.TopicCreatedEventPort;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
 import com.plip.topic.application.port.out.TopicVideoEventPort;
@@ -33,6 +34,7 @@ public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase,
 	private final TopicPersistencePort topicPersistencePort;
 	private final TopicReadCachePort topicReadCachePort;
 	private final TopicVideoEventPort topicVideoEventPort;
+	private final TopicCreatedEventPort topicCreatedEventPort;
 
 	@Override
 	@Transactional
@@ -46,6 +48,7 @@ public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase,
 		));
 		topicReadCachePort.evict(saved.getAgitUuid(), saved.getStartAt().toLocalDate());
 		publishAttachedAfterCommit(saved);
+		publishCreatedAfterCommit(saved);
 		return TopicResult.from(saved);
 	}
 
@@ -133,6 +136,20 @@ public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase,
 				videoUuid,
 				saved.getCreatorUuid()
 		));
+		if (TransactionSynchronizationManager.isActualTransactionActive()) {
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public void afterCommit() {
+					publish.run();
+				}
+			});
+			return;
+		}
+		publish.run();
+	}
+
+	private void publishCreatedAfterCommit(Topic saved) {
+		Runnable publish = () -> topicCreatedEventPort.publishCreated(saved);
 		if (TransactionSynchronizationManager.isActualTransactionActive()) {
 			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 				@Override
