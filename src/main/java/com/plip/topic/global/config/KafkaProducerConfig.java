@@ -1,5 +1,6 @@
 package com.plip.topic.global.config;
 
+import com.plip.topic.adapter.out.kafka.dto.TopicCreatedEvent;
 import com.plip.topic.adapter.out.kafka.dto.TopicVideoAttachedEvent;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -23,13 +24,20 @@ public class KafkaProducerConfig {
 	private String bootstrapServers;
 
 	@Bean
+	public ProducerFactory<String, TopicCreatedEvent> topicCreatedProducerFactory() {
+		return new DefaultKafkaProducerFactory<>(producerProps());
+	}
+
+	@Bean
+	public KafkaTemplate<String, TopicCreatedEvent> topicCreatedKafkaTemplate(
+			ProducerFactory<String, TopicCreatedEvent> topicCreatedProducerFactory
+	) {
+		return new KafkaTemplate<>(topicCreatedProducerFactory);
+	}
+
+	@Bean
 	public ProducerFactory<String, TopicVideoAttachedEvent> topicVideoAttachedProducerFactory() {
-		Map<String, Object> props = new HashMap<>();
-		props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-		props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-		props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-		props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
-		return new DefaultKafkaProducerFactory<>(props);
+		return new DefaultKafkaProducerFactory<>(producerProps());
 	}
 
 	@Bean
@@ -37,5 +45,14 @@ public class KafkaProducerConfig {
 			ProducerFactory<String, TopicVideoAttachedEvent> topicVideoAttachedProducerFactory
 	) {
 		return new KafkaTemplate<>(topicVideoAttachedProducerFactory);
+	}
+
+	private Map<String, Object> producerProps() {
+		Map<String, Object> props = new HashMap<>();
+		props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+		props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+		props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+		props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
+		return props;
 	}
 }

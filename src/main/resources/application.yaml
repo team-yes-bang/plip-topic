@@ -25,6 +25,7 @@ app:
     topics:
       video-uploaded: video.uploaded
       diary-video-bound: diary.video.bound
+      topic-created: topic.created
       topic-video-attached: topic.video.attached
 
 springdoc:

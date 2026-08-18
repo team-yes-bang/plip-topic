@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class TopicCreatedKafkaAdapter implements TopicCreatedEventPort {
 
-	private final KafkaTemplate<String, TopicCreatedEvent> kafkaTemplate;
+	private final KafkaTemplate<String, TopicCreatedEvent> topicCreatedKafkaTemplate;
 
 	@Value("${app.kafka.topics.topic-created:topic.created}")
 	private String topic;
@@ -31,6 +31,6 @@ public class TopicCreatedKafkaAdapter implements TopicCreatedEventPort {
 				saved.getStartAt(),
 				LocalDateTime.now()
 		);
-		kafkaTemplate.send(topic, saved.getTopicUuid().toString(), event);
+		topicCreatedKafkaTemplate.send(topic, saved.getTopicUuid().toString(), event);
 	}
 }
