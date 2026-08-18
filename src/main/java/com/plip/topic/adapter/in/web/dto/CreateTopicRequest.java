@@ -27,9 +27,6 @@ public class CreateTopicRequest {
 	@Schema(description = "진행 날짜. 없으면 오늘 00:00")
 	private LocalDateTime startAt;
 
-	@Schema(description = "그룹 영상 뷰어 레이아웃", example = "grid")
-	private String layout;
-
 	@Schema(description = "연결할 비디오 UUID 목록")
 	private List<UUID> videoUuids;
 }

@@ -1,6 +1,7 @@
 package com.plip.topic.application.service;
 
 import com.plip.topic.application.port.in.CreateTopicUseCase;
+import com.plip.topic.application.port.in.DeleteTopicUseCase;
 import com.plip.topic.application.port.in.ListTopicsUseCase;
 import com.plip.topic.application.port.in.UpdateTopicUseCase;
 import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
@@ -18,7 +19,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class TopicService implements ListTopicsUseCase, CreateTopicUseCase, UpdateTopicUseCase {
+public class TopicService implements ListTopicsUseCase, CreateTopicUseCase, UpdateTopicUseCase, DeleteTopicUseCase {
 
 	private final TopicPersistencePort topicPersistencePort;
 
@@ -30,7 +31,6 @@ public class TopicService implements ListTopicsUseCase, CreateTopicUseCase, Upda
 				request.getCreatorUuid(),
 				request.getTitle(),
 				request.getStartAt(),
-				request.getLayout(),
 				request.getVideoUuids()
 		));
 		return TopicResult.from(saved);
@@ -44,8 +44,20 @@ public class TopicService implements ListTopicsUseCase, CreateTopicUseCase, Upda
 		}
 		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
-		Topic updated = topic.update(request.getTitle(), request.getStartAt(), request.getLayout());
+		Topic updated = topic.update(request.getTitle(), request.getStartAt());
 		return TopicResult.from(topicPersistencePort.update(updated));
+	}
+
+	@Override
+	@Transactional
+	public void delete(UUID topicUuid) {
+		if (topicUuid == null) {
+			throw new IllegalArgumentException("topicUuid는 필수입니다.");
+		}
+		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
+				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
+		topic.assertDeletable();
+		topicPersistencePort.deleteByTopicUuid(topicUuid);
 	}
 
 	@Override

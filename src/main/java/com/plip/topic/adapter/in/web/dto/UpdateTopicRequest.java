@@ -18,7 +18,4 @@ public class UpdateTopicRequest {
 
 	@Schema(description = "진행 날짜")
 	private LocalDateTime startAt;
-
-	@Schema(description = "그룹 영상 뷰어 레이아웃", example = "chain")
-	private String layout;
 }

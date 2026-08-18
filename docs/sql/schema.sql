@@ -8,7 +8,6 @@ CREATE TABLE topic (
     creator_uuid BINARY(16) NOT NULL COMMENT '유저 서비스 논리적 참조 (no FK)',
     title        VARCHAR(255) NULL,
     start_at     DATETIME(6) NULL COMMENT '진행 날짜. 기본값 오늘, 해당 비디오 날짜와 동일',
-    layout       VARCHAR(50) NULL COMMENT '그룹 영상 뷰어 레이아웃',
     created_at   DATETIME(6) NOT NULL,
     updated_at   DATETIME(6) NOT NULL,
     deleted_at   DATETIME(6) NULL,

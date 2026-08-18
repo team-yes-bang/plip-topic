@@ -19,7 +19,6 @@ public class TopicWebMapper {
 				.creatorUuid(request.getCreatorUuid())
 				.title(request.getTitle())
 				.startAt(request.getStartAt())
-				.layout(request.getLayout())
 				.videoUuids(request.getVideoUuids())
 				.build();
 	}
@@ -28,7 +27,6 @@ public class TopicWebMapper {
 		return UpdateTopicRequestDto.builder()
 				.title(request.getTitle())
 				.startAt(request.getStartAt())
-				.layout(request.getLayout())
 				.build();
 	}
 
@@ -39,7 +37,6 @@ public class TopicWebMapper {
 				.creatorUuid(result.getCreatorUuid())
 				.title(result.getTitle())
 				.startAt(result.getStartAt())
-				.layout(result.getLayout())
 				.videoUuids(result.getVideoUuids())
 				.createdAt(result.getCreatedAt())
 				.build();

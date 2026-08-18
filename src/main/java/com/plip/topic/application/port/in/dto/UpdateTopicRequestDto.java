@@ -11,5 +11,4 @@ public class UpdateTopicRequestDto {
 
 	private final String title;
 	private final LocalDateTime startAt;
-	private final String layout;
 }

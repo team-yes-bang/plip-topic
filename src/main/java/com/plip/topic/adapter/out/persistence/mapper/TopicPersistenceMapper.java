@@ -18,7 +18,6 @@ public class TopicPersistenceMapper {
 				.creatorUuid(topic.getCreatorUuid())
 				.title(topic.getTitle())
 				.startAt(topic.getStartAt())
-				.layout(topic.getLayout())
 				.build();
 		topic.getVideos().forEach(video -> entity.addVideo(video.getVideoUuid()));
 		return entity;
@@ -40,7 +39,6 @@ public class TopicPersistenceMapper {
 				entity.getCreatorUuid(),
 				entity.getTitle(),
 				entity.getStartAt(),
-				entity.getLayout(),
 				videos,
 				entity.getCreatedAt(),
 				entity.getUpdatedAt(),

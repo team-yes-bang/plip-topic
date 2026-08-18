@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,7 +40,6 @@ class TopicServiceTest {
 				UUID.randomUUID(),
 				"주말 모임",
 				LocalDateTime.of(2026, 8, 14, 0, 0),
-				"grid",
 				List.of(videoUuid)
 		);
 		given(topicPersistencePort.findAllByAgitUuid(agitUuid)).willReturn(List.of(topic));
@@ -72,7 +72,6 @@ class TopicServiceTest {
 				.creatorUuid(creatorUuid)
 				.title("점심 메뉴")
 				.startAt(startAt)
-				.layout("grid")
 				.videoUuids(List.of(videoUuid))
 				.build());
 
@@ -81,7 +80,6 @@ class TopicServiceTest {
 		assertThat(result.getCreatorUuid()).isEqualTo(creatorUuid);
 		assertThat(result.getTitle()).isEqualTo("점심 메뉴");
 		assertThat(result.getStartAt()).isEqualTo(startAt);
-		assertThat(result.getLayout()).isEqualTo("grid");
 		assertThat(result.getVideoUuids()).containsExactly(videoUuid);
 		verify(topicPersistencePort).save(any(Topic.class));
 	}
@@ -113,7 +111,6 @@ class TopicServiceTest {
 				UUID.randomUUID(),
 				"점심 메뉴",
 				LocalDateTime.of(2026, 8, 18, 0, 0),
-				"grid",
 				List.of()
 		);
 		given(topicPersistencePort.findByTopicUuid(existing.getTopicUuid())).willReturn(Optional.of(existing));
@@ -121,11 +118,9 @@ class TopicServiceTest {
 
 		var result = topicService.update(existing.getTopicUuid(), UpdateTopicRequestDto.builder()
 				.title("저녁 메뉴")
-				.layout("chain")
 				.build());
 
 		assertThat(result.getTitle()).isEqualTo("저녁 메뉴");
-		assertThat(result.getLayout()).isEqualTo("chain");
 		assertThat(result.getStartAt()).isEqualTo(existing.getStartAt());
 		assertThat(result.getTopicUuid()).isEqualTo(existing.getTopicUuid());
 		verify(topicPersistencePort).update(any(Topic.class));
@@ -139,6 +134,43 @@ class TopicServiceTest {
 		assertThatThrownBy(() -> topicService.update(topicUuid, UpdateTopicRequestDto.builder()
 				.title("제목")
 				.build()))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("토픽이 존재하지 않습니다.");
+	}
+
+	@Test
+	void delete_softDeletesEmptyTopic() {
+		Topic existing = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, List.of());
+		given(topicPersistencePort.findByTopicUuid(existing.getTopicUuid())).willReturn(Optional.of(existing));
+
+		topicService.delete(existing.getTopicUuid());
+
+		verify(topicPersistencePort).deleteByTopicUuid(existing.getTopicUuid());
+	}
+
+	@Test
+	void delete_rejectsTopicWithVideos() {
+		Topic existing = Topic.create(
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				"제목",
+				null,
+				List.of(UUID.randomUUID())
+		);
+		given(topicPersistencePort.findByTopicUuid(existing.getTopicUuid())).willReturn(Optional.of(existing));
+
+		assertThatThrownBy(() -> topicService.delete(existing.getTopicUuid()))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("영상이 있는 토픽은 삭제할 수 없습니다.");
+		verify(topicPersistencePort, never()).deleteByTopicUuid(existing.getTopicUuid());
+	}
+
+	@Test
+	void delete_throwsWhenMissing() {
+		UUID topicUuid = UUID.randomUUID();
+		given(topicPersistencePort.findByTopicUuid(topicUuid)).willReturn(Optional.empty());
+
+		assertThatThrownBy(() -> topicService.delete(topicUuid))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("토픽이 존재하지 않습니다.");
 	}

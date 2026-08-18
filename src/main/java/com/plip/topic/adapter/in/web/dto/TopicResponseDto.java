@@ -28,9 +28,6 @@ public class TopicResponseDto {
 	@Schema(description = "진행 날짜")
 	private LocalDateTime startAt;
 
-	@Schema(description = "그룹 영상 뷰어 레이아웃")
-	private String layout;
-
 	@Schema(description = "연결된 비디오 UUID 목록")
 	private List<UUID> videoUuids;
 

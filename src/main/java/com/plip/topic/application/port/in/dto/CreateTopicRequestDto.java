@@ -15,6 +15,5 @@ public class CreateTopicRequestDto {
 	private final UUID creatorUuid;
 	private final String title;
 	private final LocalDateTime startAt;
-	private final String layout;
 	private final List<UUID> videoUuids;
 }

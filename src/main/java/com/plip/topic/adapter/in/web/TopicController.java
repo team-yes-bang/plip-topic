@@ -5,6 +5,7 @@ import com.plip.topic.adapter.in.web.dto.TopicResponseDto;
 import com.plip.topic.adapter.in.web.dto.UpdateTopicRequest;
 import com.plip.topic.adapter.in.web.mapper.TopicWebMapper;
 import com.plip.topic.application.port.in.CreateTopicUseCase;
+import com.plip.topic.application.port.in.DeleteTopicUseCase;
 import com.plip.topic.application.port.in.ListTopicsUseCase;
 import com.plip.topic.application.port.in.UpdateTopicUseCase;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,6 +13,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,6 +36,7 @@ public class TopicController {
 	private final ListTopicsUseCase listTopicsUseCase;
 	private final CreateTopicUseCase createTopicUseCase;
 	private final UpdateTopicUseCase updateTopicUseCase;
+	private final DeleteTopicUseCase deleteTopicUseCase;
 	private final TopicWebMapper topicWebMapper;
 
 	@Operation(summary = "토픽 생성", description = "아지트에 토픽을 생성합니다. 진행일이 없으면 오늘 00:00을 사용합니다.")
@@ -43,7 +46,7 @@ public class TopicController {
 		return topicWebMapper.toDto(createTopicUseCase.create(topicWebMapper.toDto(request)));
 	}
 
-	@Operation(summary = "토픽 수정", description = "토픽의 제목, 진행일, 레이아웃을 수정합니다. 전달하지 않은 필드는 유지됩니다.")
+	@Operation(summary = "토픽 수정", description = "토픽의 제목, 진행일을 수정합니다. 전달하지 않은 필드는 유지됩니다.")
 	@PatchMapping("/{topicUuid}")
 	public TopicResponseDto update(
 			@Parameter(description = "토픽 UUID", required = true)
@@ -51,6 +54,16 @@ public class TopicController {
 			@RequestBody UpdateTopicRequest request
 	) {
 		return topicWebMapper.toDto(updateTopicUseCase.update(topicUuid, topicWebMapper.toDto(request)));
+	}
+
+	@Operation(summary = "토픽 삭제", description = "영상이 없는 토픽만 소프트 삭제합니다.")
+	@DeleteMapping("/{topicUuid}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void delete(
+			@Parameter(description = "토픽 UUID", required = true)
+			@PathVariable UUID topicUuid
+	) {
+		deleteTopicUseCase.delete(topicUuid);
 	}
 
 	@Operation(summary = "토픽 목록 조회", description = "아지트에 속한 삭제되지 않은 토픽을 진행일 내림차순으로 조회합니다.")

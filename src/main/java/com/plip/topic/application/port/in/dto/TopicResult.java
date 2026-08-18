@@ -18,7 +18,6 @@ public class TopicResult {
 	private UUID creatorUuid;
 	private String title;
 	private LocalDateTime startAt;
-	private String layout;
 	private List<UUID> videoUuids;
 	private LocalDateTime createdAt;
 
@@ -29,7 +28,6 @@ public class TopicResult {
 				.creatorUuid(topic.getCreatorUuid())
 				.title(topic.getTitle())
 				.startAt(topic.getStartAt())
-				.layout(topic.getLayout())
 				.videoUuids(topic.getVideos().stream().map(TopicVideo::getVideoUuid).toList())
 				.createdAt(topic.getCreatedAt())
 				.build();
