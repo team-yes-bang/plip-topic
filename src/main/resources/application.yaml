@@ -27,6 +27,13 @@ app:
       diary-video-bound: diary.video.bound
       topic-video-attached: topic.video.attached
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  api-docs:
+    enabled: true
+
 eureka:
   instance:
     prefer-ip-address: true

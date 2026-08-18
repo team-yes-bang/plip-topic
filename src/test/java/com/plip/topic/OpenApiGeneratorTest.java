@@ -34,4 +34,10 @@ class OpenApiGeneratorTest {
 		Files.createDirectories(docsDir);
 		Files.writeString(docsDir.resolve("openapi.yaml"), new String(openApiYaml, StandardCharsets.UTF_8));
 	}
+
+	@Test
+	void swaggerUiIsAvailable() throws Exception {
+		mockMvc.perform(get("/swagger-ui/index.html"))
+				.andExpect(status().isOk());
+	}
 }
