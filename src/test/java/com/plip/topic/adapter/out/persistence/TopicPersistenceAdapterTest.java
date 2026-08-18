@@ -31,7 +31,7 @@ class TopicPersistenceAdapterTest {
 		LocalDateTime startAt = LocalDateTime.of(2026, 8, 14, 10, 0);
 
 		Topic saved = topicPersistencePort.save(
-				Topic.create(agitUuid, creatorUuid, "주말 모임", startAt, "grid", List.of(videoUuid))
+				Topic.create(agitUuid, creatorUuid, "주말 모임", startAt, List.of(videoUuid))
 		);
 
 		Topic found = topicPersistencePort.findByTopicUuid(saved.getTopicUuid()).orElseThrow();
@@ -40,7 +40,6 @@ class TopicPersistenceAdapterTest {
 		assertThat(found.getAgitUuid()).isEqualTo(agitUuid);
 		assertThat(found.getCreatorUuid()).isEqualTo(creatorUuid);
 		assertThat(found.getTitle()).isEqualTo("주말 모임");
-		assertThat(found.getLayout()).isEqualTo("grid");
 		assertThat(found.getStartAt()).isEqualTo(startAt);
 		assertThat(found.getCreatedAt()).isNotNull();
 		assertThat(found.getVideos()).extracting(video -> video.getVideoUuid()).containsExactly(videoUuid);
@@ -48,23 +47,22 @@ class TopicPersistenceAdapterTest {
 	}
 
 	@Test
-	void update_changesTitleAndKeepsLayout() {
+	void update_changesTitleAndKeepsStartAt() {
 		Topic saved = topicPersistencePort.save(
-				Topic.create(UUID.randomUUID(), UUID.randomUUID(), "점심 메뉴", LocalDateTime.of(2026, 8, 18, 0, 0), "grid", List.of())
+				Topic.create(UUID.randomUUID(), UUID.randomUUID(), "점심 메뉴", LocalDateTime.of(2026, 8, 18, 0, 0), List.of())
 		);
 
-		Topic updated = saved.update("저녁 메뉴", null, null);
+		Topic updated = saved.update("저녁 메뉴", null);
 		Topic found = topicPersistencePort.update(updated);
 
 		assertThat(found.getTopicUuid()).isEqualTo(saved.getTopicUuid());
 		assertThat(found.getTitle()).isEqualTo("저녁 메뉴");
-		assertThat(found.getLayout()).isEqualTo("grid");
 		assertThat(found.getStartAt()).isEqualTo(saved.getStartAt());
 	}
 
 	@Test
 	void update_throwsWhenMissing() {
-		Topic missing = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, null, List.of());
+		Topic missing = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, List.of());
 
 		assertThatThrownBy(() -> topicPersistencePort.update(missing))
 				.isInstanceOf(IllegalArgumentException.class)
@@ -74,7 +72,7 @@ class TopicPersistenceAdapterTest {
 	@Test
 	void deleteByTopicUuid_hidesTopicFromFind() {
 		Topic saved = topicPersistencePort.save(
-				Topic.create(UUID.randomUUID(), UUID.randomUUID(), "삭제 대상", null, null, List.of(UUID.randomUUID()))
+				Topic.create(UUID.randomUUID(), UUID.randomUUID(), "삭제 대상", null, List.of(UUID.randomUUID()))
 		);
 
 		topicPersistencePort.deleteByTopicUuid(saved.getTopicUuid());
@@ -94,11 +92,11 @@ class TopicPersistenceAdapterTest {
 		UUID agitUuid = UUID.randomUUID();
 		UUID creatorUuid = UUID.randomUUID();
 		topicPersistencePort.save(Topic.create(
-				agitUuid, creatorUuid, "old", LocalDateTime.of(2026, 8, 1, 0, 0), null, List.of()));
+				agitUuid, creatorUuid, "old", LocalDateTime.of(2026, 8, 1, 0, 0), List.of()));
 		topicPersistencePort.save(Topic.create(
-				agitUuid, creatorUuid, "new", LocalDateTime.of(2026, 8, 14, 0, 0), null, List.of()));
+				agitUuid, creatorUuid, "new", LocalDateTime.of(2026, 8, 14, 0, 0), List.of()));
 		topicPersistencePort.save(Topic.create(
-				UUID.randomUUID(), creatorUuid, "other", LocalDateTime.of(2026, 8, 20, 0, 0), null, List.of()));
+				UUID.randomUUID(), creatorUuid, "other", LocalDateTime.of(2026, 8, 20, 0, 0), List.of()));
 
 		List<Topic> found = topicPersistencePort.findAllByAgitUuid(agitUuid);
 

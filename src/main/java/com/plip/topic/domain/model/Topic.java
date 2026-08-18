@@ -22,7 +22,6 @@ public class Topic {
 	private UUID creatorUuid;
 	private String title;
 	private LocalDateTime startAt;
-	private String layout;
 	private List<TopicVideo> videos;
 	private LocalDateTime createdAt;
 	private LocalDateTime updatedAt;
@@ -33,7 +32,6 @@ public class Topic {
 			UUID creatorUuid,
 			String title,
 			LocalDateTime startAt,
-			String layout,
 			List<UUID> videoUuids
 	) {
 		if (agitUuid == null) {
@@ -43,7 +41,6 @@ public class Topic {
 			throw new IllegalArgumentException("creatorUuid는 필수입니다.");
 		}
 		validateTitle(title);
-		validateLayout(layout);
 
 		return Topic.builder()
 				.topicUuid(UuidV7.create())
@@ -51,7 +48,6 @@ public class Topic {
 				.creatorUuid(creatorUuid)
 				.title(title)
 				.startAt(startAt != null ? startAt : LocalDate.now().atStartOfDay())
-				.layout(layout)
 				.videos(toVideos(videoUuids))
 				.build();
 	}
@@ -62,7 +58,6 @@ public class Topic {
 			UUID creatorUuid,
 			String title,
 			LocalDateTime startAt,
-			String layout,
 			List<TopicVideo> videos,
 			LocalDateTime createdAt,
 			LocalDateTime updatedAt,
@@ -74,7 +69,6 @@ public class Topic {
 				.creatorUuid(creatorUuid)
 				.title(title)
 				.startAt(startAt)
-				.layout(layout)
 				.videos(videos)
 				.createdAt(createdAt)
 				.updatedAt(updatedAt)
@@ -82,27 +76,33 @@ public class Topic {
 				.build();
 	}
 
-	public Topic update(String title, LocalDateTime startAt, String layout) {
+	public Topic update(String title, LocalDateTime startAt) {
 		if (isDeleted()) {
 			throw new IllegalArgumentException("삭제된 토픽은 수정할 수 없습니다.");
 		}
 		String nextTitle = title != null ? title : this.title;
 		LocalDateTime nextStartAt = startAt != null ? startAt : this.startAt;
-		String nextLayout = layout != null ? layout : this.layout;
 		validateTitle(nextTitle);
-		validateLayout(nextLayout);
 		return Topic.builder()
 				.topicUuid(this.topicUuid)
 				.agitUuid(this.agitUuid)
 				.creatorUuid(this.creatorUuid)
 				.title(nextTitle)
 				.startAt(nextStartAt)
-				.layout(nextLayout)
 				.videos(this.videos)
 				.createdAt(this.createdAt)
 				.updatedAt(this.updatedAt)
 				.deletedAt(this.deletedAt)
 				.build();
+	}
+
+	public void assertDeletable() {
+		if (isDeleted()) {
+			throw new IllegalArgumentException("삭제된 토픽은 다시 삭제할 수 없습니다.");
+		}
+		if (!videos.isEmpty()) {
+			throw new IllegalArgumentException("영상이 있는 토픽은 삭제할 수 없습니다.");
+		}
 	}
 
 	public Topic softDelete(LocalDateTime deletedAt) {
@@ -115,7 +115,6 @@ public class Topic {
 				.creatorUuid(this.creatorUuid)
 				.title(this.title)
 				.startAt(this.startAt)
-				.layout(this.layout)
 				.videos(this.videos)
 				.createdAt(this.createdAt)
 				.updatedAt(this.updatedAt)
@@ -151,12 +150,6 @@ public class Topic {
 		}
 	}
 
-	private static void validateLayout(String layout) {
-		if (layout != null && layout.length() > 50) {
-			throw new IllegalArgumentException("layout은 50자 이하여야 합니다.");
-		}
-	}
-
 	@Builder(access = AccessLevel.PRIVATE)
 	private Topic(
 			UUID topicUuid,
@@ -164,7 +157,6 @@ public class Topic {
 			UUID creatorUuid,
 			String title,
 			LocalDateTime startAt,
-			String layout,
 			List<TopicVideo> videos,
 			LocalDateTime createdAt,
 			LocalDateTime updatedAt,
@@ -175,7 +167,6 @@ public class Topic {
 		this.creatorUuid = creatorUuid;
 		this.title = title;
 		this.startAt = startAt;
-		this.layout = layout;
 		this.videos = videos == null ? List.of() : List.copyOf(videos);
 		this.createdAt = createdAt;
 		this.updatedAt = updatedAt;

@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -44,7 +45,6 @@ class TopicControllerTest {
 				UUID.randomUUID(),
 				"이전 모임",
 				LocalDateTime.of(2026, 1, 1, 0, 0),
-				"grid",
 				List.of()
 		));
 		topicPersistencePort.save(Topic.create(
@@ -52,7 +52,6 @@ class TopicControllerTest {
 				UUID.randomUUID(),
 				"최근 모임",
 				LocalDateTime.of(2026, 8, 14, 0, 0),
-				"grid",
 				List.of(videoUuid)
 		));
 		topicPersistencePort.save(Topic.create(
@@ -60,7 +59,6 @@ class TopicControllerTest {
 				UUID.randomUUID(),
 				"다른 아지트",
 				LocalDateTime.of(2026, 8, 14, 0, 0),
-				"grid",
 				List.of()
 		));
 
@@ -70,7 +68,8 @@ class TopicControllerTest {
 				.andExpect(jsonPath("$[0].title").value("최근 모임"))
 				.andExpect(jsonPath("$[0].videoUuids[0]").value(videoUuid.toString()))
 				.andExpect(jsonPath("$[1].title").value("이전 모임"))
-				.andExpect(jsonPath("$[0].agitUuid").value(agitUuid.toString()));
+				.andExpect(jsonPath("$[0].agitUuid").value(agitUuid.toString()))
+				.andExpect(jsonPath("$[0].layout").doesNotExist());
 	}
 
 	@Test
@@ -100,7 +99,6 @@ class TopicControllerTest {
 								  "creatorUuid": "%s",
 								  "title": "점심 메뉴",
 								  "startAt": "2026-08-18T00:00:00",
-								  "layout": "grid",
 								  "videoUuids": ["%s"]
 								}
 								""".formatted(agitUuid, creatorUuid, videoUuid)))
@@ -109,7 +107,7 @@ class TopicControllerTest {
 				.andExpect(jsonPath("$.agitUuid").value(agitUuid.toString()))
 				.andExpect(jsonPath("$.creatorUuid").value(creatorUuid.toString()))
 				.andExpect(jsonPath("$.title").value("점심 메뉴"))
-				.andExpect(jsonPath("$.layout").value("grid"))
+				.andExpect(jsonPath("$.layout").doesNotExist())
 				.andExpect(jsonPath("$.videoUuids[0]").value(videoUuid.toString()));
 
 		mockMvc.perform(get("/api/v1/topics").param("agitUuid", agitUuid.toString()))
@@ -133,13 +131,12 @@ class TopicControllerTest {
 	}
 
 	@Test
-	void update_changesTitleAndKeepsLayout() throws Exception {
+	void update_changesTitleAndKeepsStartAt() throws Exception {
 		Topic saved = topicPersistencePort.save(Topic.create(
 				UUID.randomUUID(),
 				UUID.randomUUID(),
 				"점심 메뉴",
 				LocalDateTime.of(2026, 8, 18, 0, 0),
-				"grid",
 				List.of()
 		));
 
@@ -153,7 +150,8 @@ class TopicControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.topicUuid").value(saved.getTopicUuid().toString()))
 				.andExpect(jsonPath("$.title").value("저녁 메뉴"))
-				.andExpect(jsonPath("$.layout").value("grid"));
+				.andExpect(jsonPath("$.startAt").value("2026-08-18T00:00:00"))
+				.andExpect(jsonPath("$.layout").doesNotExist());
 	}
 
 	@Test
@@ -165,6 +163,46 @@ class TopicControllerTest {
 								  "title": "제목"
 								}
 								"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("토픽이 존재하지 않습니다."));
+	}
+
+	@Test
+	void delete_returnsNoContentWhenEmpty() throws Exception {
+		Topic saved = topicPersistencePort.save(Topic.create(
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				"삭제 대상",
+				null,
+				List.of()
+		));
+
+		mockMvc.perform(delete("/api/v1/topics/{topicUuid}", saved.getTopicUuid()))
+				.andExpect(status().isNoContent());
+
+		mockMvc.perform(get("/api/v1/topics").param("agitUuid", saved.getAgitUuid().toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(0));
+	}
+
+	@Test
+	void delete_returnsBadRequestWhenTopicHasVideos() throws Exception {
+		Topic saved = topicPersistencePort.save(Topic.create(
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				"영상 있는 토픽",
+				null,
+				List.of(UUID.randomUUID())
+		));
+
+		mockMvc.perform(delete("/api/v1/topics/{topicUuid}", saved.getTopicUuid()))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("영상이 있는 토픽은 삭제할 수 없습니다."));
+	}
+
+	@Test
+	void delete_returnsBadRequestWhenMissing() throws Exception {
+		mockMvc.perform(delete("/api/v1/topics/{topicUuid}", UUID.randomUUID()))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value("토픽이 존재하지 않습니다."));
 	}

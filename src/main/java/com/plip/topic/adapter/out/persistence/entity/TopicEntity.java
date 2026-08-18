@@ -57,9 +57,6 @@ public class TopicEntity extends BaseTimeEntity {
 	@Column(name = "start_at")
 	private LocalDateTime startAt;
 
-	@Column(name = "layout", length = 50)
-	private String layout;
-
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
 
@@ -72,15 +69,13 @@ public class TopicEntity extends BaseTimeEntity {
 			UUID agitUuid,
 			UUID creatorUuid,
 			String title,
-			LocalDateTime startAt,
-			String layout
+			LocalDateTime startAt
 	) {
 		this.topicUuid = topicUuid;
 		this.agitUuid = agitUuid;
 		this.creatorUuid = creatorUuid;
 		this.title = title;
 		this.startAt = startAt;
-		this.layout = layout;
 		this.videos = new ArrayList<>();
 	}
 
@@ -91,10 +86,9 @@ public class TopicEntity extends BaseTimeEntity {
 				.build());
 	}
 
-	public void update(String title, LocalDateTime startAt, String layout) {
+	public void update(String title, LocalDateTime startAt) {
 		this.title = title;
 		this.startAt = startAt;
-		this.layout = layout;
 	}
 
 	public void softDelete(LocalDateTime deletedAt) {

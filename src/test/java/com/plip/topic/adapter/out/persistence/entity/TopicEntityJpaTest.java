@@ -135,7 +135,6 @@ class TopicEntityJpaTest {
 				.creatorUuid(UUID.randomUUID())
 				.title(title)
 				.startAt(startAt)
-				.layout("grid")
 				.build();
 	}
 }

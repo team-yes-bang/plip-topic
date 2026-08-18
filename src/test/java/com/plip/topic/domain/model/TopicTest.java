@@ -18,7 +18,7 @@ class TopicTest {
 		UUID creatorUuid = UUID.randomUUID();
 		UUID videoUuid = UUID.randomUUID();
 
-		Topic topic = Topic.create(agitUuid, creatorUuid, "주말 모임", null, "grid", List.of(videoUuid));
+		Topic topic = Topic.create(agitUuid, creatorUuid, "주말 모임", null, List.of(videoUuid));
 
 		assertThat(topic.getTopicUuid()).isNotNull();
 		assertThat(topic.getTopicUuid().version()).isEqualTo(7);
@@ -32,7 +32,7 @@ class TopicTest {
 
 	@Test
 	void create_requiresAgitUuid() {
-		assertThatThrownBy(() -> Topic.create(null, UUID.randomUUID(), "제목", null, null, List.of()))
+		assertThatThrownBy(() -> Topic.create(null, UUID.randomUUID(), "제목", null, List.of()))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("agitUuid는 필수입니다.");
 	}
@@ -46,7 +46,6 @@ class TopicTest {
 				UUID.randomUUID(),
 				"제목",
 				LocalDateTime.now(),
-				null,
 				List.of(videoUuid, videoUuid)
 		)).isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("중복된 videoUuid는 허용되지 않습니다.");
@@ -54,7 +53,7 @@ class TopicTest {
 
 	@Test
 	void softDelete_marksTopicDeleted() {
-		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, null, List.of());
+		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, List.of());
 		LocalDateTime deletedAt = LocalDateTime.now();
 
 		Topic deleted = topic.softDelete(deletedAt);
@@ -71,14 +70,12 @@ class TopicTest {
 				UUID.randomUUID(),
 				"점심 메뉴",
 				LocalDateTime.of(2026, 8, 18, 0, 0),
-				"grid",
 				List.of()
 		);
 
-		Topic updated = topic.update("저녁 메뉴", null, "chain");
+		Topic updated = topic.update("저녁 메뉴", null);
 
 		assertThat(updated.getTitle()).isEqualTo("저녁 메뉴");
-		assertThat(updated.getLayout()).isEqualTo("chain");
 		assertThat(updated.getStartAt()).isEqualTo(topic.getStartAt());
 		assertThat(updated.getTopicUuid()).isEqualTo(topic.getTopicUuid());
 		assertThat(updated.getAgitUuid()).isEqualTo(topic.getAgitUuid());
@@ -86,11 +83,33 @@ class TopicTest {
 
 	@Test
 	void update_rejectsDeletedTopic() {
-		Topic deleted = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, null, List.of())
+		Topic deleted = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, List.of())
 				.softDelete(LocalDateTime.now());
 
-		assertThatThrownBy(() -> deleted.update("새 제목", null, null))
+		assertThatThrownBy(() -> deleted.update("새 제목", null))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("삭제된 토픽은 수정할 수 없습니다.");
+	}
+
+	@Test
+	void assertDeletable_allowsEmptyTopic() {
+		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, List.of());
+
+		topic.assertDeletable();
+	}
+
+	@Test
+	void assertDeletable_rejectsTopicWithVideos() {
+		Topic topic = Topic.create(
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				"제목",
+				null,
+				List.of(UUID.randomUUID())
+		);
+
+		assertThatThrownBy(topic::assertDeletable)
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("영상이 있는 토픽은 삭제할 수 없습니다.");
 	}
 }
