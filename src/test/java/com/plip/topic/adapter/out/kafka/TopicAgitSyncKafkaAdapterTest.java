@@ -33,6 +33,7 @@ class TopicAgitSyncKafkaAdapterTest {
 		adapter = new TopicAgitSyncKafkaAdapter(topicAgitSyncKafkaTemplate);
 		ReflectionTestUtils.setField(adapter, "boundTopic", "topic.bound");
 		ReflectionTestUtils.setField(adapter, "startedTopic", "topic.started");
+		ReflectionTestUtils.setField(adapter, "unboundTopic", "topic.unbound");
 	}
 
 	@Test
@@ -54,5 +55,21 @@ class TopicAgitSyncKafkaAdapterTest {
 			assertThat(event.startedAt()).isEqualTo(startAt.toInstant(ZoneOffset.UTC));
 			assertThat(event.occurredAt()).isNotNull();
 		});
+	}
+
+	@Test
+	void publishUnbound_sendsAgitContractPayloadWithoutStartedAt() {
+		UUID agitUuid = UUID.randomUUID();
+		Topic topic = Topic.create(agitUuid, UUID.randomUUID(), "점심 메뉴", LocalDateTime.of(2026, 8, 18, 0, 0), List.of());
+
+		adapter.publishUnbound(topic);
+
+		ArgumentCaptor<TopicAgitSyncEvent> eventCaptor = ArgumentCaptor.forClass(TopicAgitSyncEvent.class);
+		verify(topicAgitSyncKafkaTemplate).send(eq("topic.unbound"), eq(agitUuid.toString()), eventCaptor.capture());
+		TopicAgitSyncEvent event = eventCaptor.getValue();
+		assertThat(event.agitUuid()).isEqualTo(agitUuid);
+		assertThat(event.topicId()).isEqualTo(topic.getTopicUuid().toString());
+		assertThat(event.startedAt()).isNull();
+		assertThat(event.occurredAt()).isNotNull();
 	}
 }

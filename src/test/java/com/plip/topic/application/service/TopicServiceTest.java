@@ -207,6 +207,7 @@ class TopicServiceTest {
 		topicService.delete(existing.getTopicUuid());
 
 		verify(topicPersistencePort).deleteByTopicUuid(existing.getTopicUuid());
+		verify(topicAgitSyncEventPort).publishUnbound(existing);
 	}
 
 	@Test
@@ -224,6 +225,7 @@ class TopicServiceTest {
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("영상이 있는 토픽은 삭제할 수 없습니다.");
 		verify(topicPersistencePort, never()).deleteByTopicUuid(existing.getTopicUuid());
+		verify(topicAgitSyncEventPort, never()).publishUnbound(any(Topic.class));
 	}
 
 	@Test
@@ -234,5 +236,6 @@ class TopicServiceTest {
 		assertThatThrownBy(() -> topicService.delete(topicUuid))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("토픽이 존재하지 않습니다.");
+		verify(topicAgitSyncEventPort, never()).publishUnbound(any(Topic.class));
 	}
 }

@@ -12,4 +12,8 @@ public class NoOpTopicAgitSyncEventAdapter implements TopicAgitSyncEventPort {
 	@Override
 	public void publishBoundAndStarted(Topic topic) {
 	}
+
+	@Override
+	public void publishUnbound(Topic topic) {
+	}
 }
