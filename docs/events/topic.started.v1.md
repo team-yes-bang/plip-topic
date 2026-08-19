@@ -36,7 +36,9 @@
 
 `POST /api/v1/topics`가 커밋된 뒤 `topic.bound`와 함께 발행한다. 생성 시 startAt(없으면 오늘 00:00)을 `startedAt`으로 넣는다.
 
+`PATCH /api/v1/topics/{topicUuid}`가 커밋된 뒤에도 `topic.bound`와 함께 재발행한다. `startedAt`은 수정된 startAt이다.
+
 ## 소비자 기대
 
 - **agit**: `startedAt`이 없으면 skip. 읽기모델에 topicId + startedAt 반영
-- **chat**: `주제가 시작되었습니다` 시스템 메시지
+- **chat**: `주제가 시작되었습니다` 시스템 메시지. PATCH 재발행 때도 동일하게 수신하므로, 날짜가 같으면 메시지를 생략할 수 있다.

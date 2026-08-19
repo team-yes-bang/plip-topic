@@ -174,6 +174,8 @@ class TopicServiceTest {
 		assertThat(result.getStartAt()).isEqualTo(existing.getStartAt());
 		assertThat(result.getTopicUuid()).isEqualTo(existing.getTopicUuid());
 		verify(topicPersistencePort).update(any(Topic.class));
+		verify(topicAgitSyncEventPort).publishBoundAndStarted(any(Topic.class));
+		verify(topicCreatedEventPort, never()).publishCreated(any(Topic.class));
 	}
 
 	@Test
@@ -186,6 +188,7 @@ class TopicServiceTest {
 				.build()))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("토픽이 존재하지 않습니다.");
+		verify(topicAgitSyncEventPort, never()).publishBoundAndStarted(any(Topic.class));
 	}
 
 	@Test
