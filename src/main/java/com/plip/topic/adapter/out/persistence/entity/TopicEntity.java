@@ -79,11 +79,16 @@ public class TopicEntity extends BaseTimeEntity {
 		this.videos = new ArrayList<>();
 	}
 
-	public void addVideo(UUID videoUuid) {
+	public void addVideo(UUID videoUuid, UUID userUuid) {
 		this.videos.add(TopicVideoEntity.builder()
 				.topic(this)
 				.videoUuid(videoUuid)
+				.userUuid(userUuid)
 				.build());
+	}
+
+	public void removeVideo(UUID videoUuid) {
+		this.videos.removeIf(video -> videoUuid.equals(video.getVideoUuid()));
 	}
 
 	public void update(String title, LocalDateTime startAt) {

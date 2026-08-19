@@ -47,6 +47,10 @@ public class TopicVideoEntity {
 	@Column(name = "video_uuid", nullable = false, columnDefinition = "BINARY(16)", length = 16)
 	private UUID videoUuid;
 
+	@JdbcTypeCode(SqlTypes.BINARY)
+	@Column(name = "user_uuid", nullable = false, columnDefinition = "BINARY(16)", length = 16)
+	private UUID userUuid;
+
 	@CreatedDate
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private LocalDateTime createdAt;
@@ -55,9 +59,10 @@ public class TopicVideoEntity {
 	private LocalDateTime deletedAt;
 
 	@Builder
-	private TopicVideoEntity(TopicEntity topic, UUID videoUuid) {
+	private TopicVideoEntity(TopicEntity topic, UUID videoUuid, UUID userUuid) {
 		this.topic = topic;
 		this.videoUuid = videoUuid;
+		this.userUuid = userUuid;
 	}
 
 	public void softDelete(LocalDateTime deletedAt) {

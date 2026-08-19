@@ -22,15 +22,16 @@ public class DiaryVideoBoundConsumer {
 			containerFactory = "diaryVideoBoundKafkaListenerContainerFactory"
 	)
 	public void consume(DiaryVideoBoundEvent event) {
-		if (event == null || event.topicUuid() == null || event.videoUuid() == null) {
+		if (event == null || event.topicUuid() == null || event.videoUuid() == null || event.userUuid() == null) {
 			log.warn(
-					"diary.video.bound 토픽 연결 필드 누락 — skip topicUuid={} videoUuid={}",
+					"diary.video.bound 토픽 연결 필드 누락 — skip topicUuid={} videoUuid={} userUuid={}",
 					event == null ? null : event.topicUuid(),
-					event == null ? null : event.videoUuid()
+					event == null ? null : event.videoUuid(),
+					event == null ? null : event.userUuid()
 			);
 			return;
 		}
-		boolean attached = attachTopicVideoUseCase.attach(event.topicUuid(), event.videoUuid());
+		boolean attached = attachTopicVideoUseCase.tryAttach(event.topicUuid(), event.videoUuid(), event.userUuid());
 		if (!attached) {
 			log.info("diary.video.bound 토픽 영상 미반영 — skip topicUuid={} videoUuid={}", event.topicUuid(), event.videoUuid());
 		}

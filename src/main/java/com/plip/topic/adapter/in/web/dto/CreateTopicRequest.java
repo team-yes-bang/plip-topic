@@ -6,13 +6,12 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Getter
 @Setter
 @NoArgsConstructor
-@Schema(description = "토픽 생성 요청")
+@Schema(description = "토픽 생성 요청. 주제만 만든다. 영상은 POST /topics/{topicUuid}/videos")
 public class CreateTopicRequest {
 
 	@Schema(description = "아지트 UUID", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -26,7 +25,4 @@ public class CreateTopicRequest {
 
 	@Schema(description = "진행 날짜. 없으면 오늘 00:00")
 	private LocalDateTime startAt;
-
-	@Schema(description = "연결할 비디오 UUID 목록")
-	private List<UUID> videoUuids;
 }

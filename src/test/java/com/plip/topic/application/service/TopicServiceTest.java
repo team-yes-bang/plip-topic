@@ -6,7 +6,6 @@ import com.plip.topic.application.port.out.TopicAgitSyncEventPort;
 import com.plip.topic.application.port.out.TopicCreatedEventPort;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
-import com.plip.topic.application.port.out.TopicVideoEventPort;
 import com.plip.topic.domain.model.Topic;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,9 +37,6 @@ class TopicServiceTest {
 	private TopicReadCachePort topicReadCachePort;
 
 	@Mock
-	private TopicVideoEventPort topicVideoEventPort;
-
-	@Mock
 	private TopicCreatedEventPort topicCreatedEventPort;
 
 	@Mock
@@ -52,15 +48,15 @@ class TopicServiceTest {
 	@Test
 	void listByAgitUuidAndDate_mapsPersistedTopics() {
 		UUID agitUuid = UUID.randomUUID();
+		UUID userUuid = UUID.randomUUID();
 		UUID videoUuid = UUID.randomUUID();
 		LocalDate date = LocalDate.of(2026, 8, 14);
 		Topic topic = Topic.create(
 				agitUuid,
 				UUID.randomUUID(),
 				"주말 모임",
-				LocalDateTime.of(2026, 8, 14, 0, 0),
-				List.of(videoUuid)
-		);
+				LocalDateTime.of(2026, 8, 14, 0, 0)
+		).attachVideo(userUuid, videoUuid);
 		given(topicReadCachePort.getDayTopics(agitUuid, date)).willReturn(Optional.empty());
 		given(topicPersistencePort.findAllByAgitUuidAndDate(agitUuid, date)).willReturn(List.of(topic));
 
@@ -69,7 +65,8 @@ class TopicServiceTest {
 		assertThat(results).hasSize(1);
 		assertThat(results.get(0).getTitle()).isEqualTo("주말 모임");
 		assertThat(results.get(0).getAgitUuid()).isEqualTo(agitUuid);
-		assertThat(results.get(0).getVideoUuids()).containsExactly(videoUuid);
+		assertThat(results.get(0).getVideoCount()).isEqualTo(1);
+		assertThat(results.get(0).uploadedBy(userUuid)).isTrue();
 		verify(topicReadCachePort).putDayTopics(agitUuid, date, results);
 	}
 
@@ -88,6 +85,17 @@ class TopicServiceTest {
 	}
 
 	@Test
+	void get_returnsTopic() {
+		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
+		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
+
+		var result = topicService.get(topic.getTopicUuid());
+
+		assertThat(result.getTitle()).isEqualTo("제목");
+		assertThat(result.getVideoCount()).isZero();
+	}
+
+	@Test
 	void getCalendar_returnsActiveDates() {
 		UUID agitUuid = UUID.randomUUID();
 		YearMonth yearMonth = YearMonth.of(2026, 8);
@@ -102,10 +110,9 @@ class TopicServiceTest {
 	}
 
 	@Test
-	void create_persistsTopicAndReturnsResult() {
+	void create_persistsTopicWithoutVideos() {
 		UUID agitUuid = UUID.randomUUID();
 		UUID creatorUuid = UUID.randomUUID();
-		UUID videoUuid = UUID.randomUUID();
 		LocalDateTime startAt = LocalDateTime.of(2026, 8, 18, 0, 0);
 		given(topicPersistencePort.save(any(Topic.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -114,7 +121,6 @@ class TopicServiceTest {
 				.creatorUuid(creatorUuid)
 				.title("점심 메뉴")
 				.startAt(startAt)
-				.videoUuids(List.of(videoUuid))
 				.build());
 
 		assertThat(result.getTopicUuid()).isNotNull();
@@ -122,25 +128,9 @@ class TopicServiceTest {
 		assertThat(result.getCreatorUuid()).isEqualTo(creatorUuid);
 		assertThat(result.getTitle()).isEqualTo("점심 메뉴");
 		assertThat(result.getStartAt()).isEqualTo(startAt);
-		assertThat(result.getVideoUuids()).containsExactly(videoUuid);
+		assertThat(result.getVideoCount()).isZero();
 		verify(topicPersistencePort).save(any(Topic.class));
 		verify(topicReadCachePort).evict(agitUuid, startAt.toLocalDate());
-		verify(topicVideoEventPort).publishAttached(result.getTopicUuid(), agitUuid, videoUuid, creatorUuid);
-		verify(topicCreatedEventPort).publishCreated(any(Topic.class));
-		verify(topicAgitSyncEventPort).publishBoundAndStarted(any(Topic.class));
-	}
-
-	@Test
-	void create_doesNotPublishWhenVideosEmpty() {
-		given(topicPersistencePort.save(any(Topic.class))).willAnswer(invocation -> invocation.getArgument(0));
-
-		topicService.create(CreateTopicRequestDto.builder()
-				.agitUuid(UUID.randomUUID())
-				.creatorUuid(UUID.randomUUID())
-				.title("제목")
-				.build());
-
-		verify(topicVideoEventPort, never()).publishAttached(any(), any(), any(), any());
 		verify(topicCreatedEventPort).publishCreated(any(Topic.class));
 		verify(topicAgitSyncEventPort).publishBoundAndStarted(any(Topic.class));
 	}
@@ -171,8 +161,7 @@ class TopicServiceTest {
 				UUID.randomUUID(),
 				UUID.randomUUID(),
 				"점심 메뉴",
-				LocalDateTime.of(2026, 8, 18, 0, 0),
-				List.of()
+				LocalDateTime.of(2026, 8, 18, 0, 0)
 		);
 		given(topicPersistencePort.findByTopicUuid(existing.getTopicUuid())).willReturn(Optional.of(existing));
 		given(topicPersistencePort.update(any(Topic.class))).willAnswer(invocation -> invocation.getArgument(0));
@@ -201,7 +190,7 @@ class TopicServiceTest {
 
 	@Test
 	void delete_softDeletesEmptyTopic() {
-		Topic existing = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null, List.of());
+		Topic existing = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null);
 		given(topicPersistencePort.findByTopicUuid(existing.getTopicUuid())).willReturn(Optional.of(existing));
 
 		topicService.delete(existing.getTopicUuid());
@@ -212,13 +201,8 @@ class TopicServiceTest {
 
 	@Test
 	void delete_rejectsTopicWithVideos() {
-		Topic existing = Topic.create(
-				UUID.randomUUID(),
-				UUID.randomUUID(),
-				"제목",
-				null,
-				List.of(UUID.randomUUID())
-		);
+		Topic existing = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null)
+				.attachVideo(UUID.randomUUID(), UUID.randomUUID());
 		given(topicPersistencePort.findByTopicUuid(existing.getTopicUuid())).willReturn(Optional.of(existing));
 
 		assertThatThrownBy(() -> topicService.delete(existing.getTopicUuid()))

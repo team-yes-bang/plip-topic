@@ -4,5 +4,7 @@ import java.util.UUID;
 
 public interface AttachTopicVideoUseCase {
 
-	boolean attach(UUID topicUuid, UUID videoUuid);
+	boolean tryAttach(UUID topicUuid, UUID videoUuid, UUID userUuid);
+
+	boolean attachOrThrow(UUID topicUuid, UUID videoUuid, UUID userUuid);
 }

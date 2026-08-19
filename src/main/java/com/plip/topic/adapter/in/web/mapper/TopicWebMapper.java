@@ -3,14 +3,17 @@ package com.plip.topic.adapter.in.web.mapper;
 import com.plip.topic.adapter.in.web.dto.CreateTopicRequest;
 import com.plip.topic.adapter.in.web.dto.TopicCalendarResponse;
 import com.plip.topic.adapter.in.web.dto.TopicResponseDto;
+import com.plip.topic.adapter.in.web.dto.TopicVideoResponseDto;
 import com.plip.topic.adapter.in.web.dto.UpdateTopicRequest;
 import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
 import com.plip.topic.application.port.in.dto.TopicCalendarResult;
 import com.plip.topic.application.port.in.dto.TopicResult;
+import com.plip.topic.application.port.in.dto.TopicVideoResult;
 import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
 
 @Component
 public class TopicWebMapper {
@@ -21,7 +24,6 @@ public class TopicWebMapper {
 				.creatorUuid(request.getCreatorUuid())
 				.title(request.getTitle())
 				.startAt(request.getStartAt())
-				.videoUuids(request.getVideoUuids())
 				.build();
 	}
 
@@ -32,20 +34,29 @@ public class TopicWebMapper {
 				.build();
 	}
 
-	public TopicResponseDto toDto(TopicResult result) {
+	public TopicResponseDto toDto(TopicResult result, UUID viewerUuid) {
 		return TopicResponseDto.builder()
 				.topicUuid(result.getTopicUuid())
 				.agitUuid(result.getAgitUuid())
 				.creatorUuid(result.getCreatorUuid())
 				.title(result.getTitle())
 				.startAt(result.getStartAt())
-				.videoUuids(result.getVideoUuids())
+				.videoCount(result.getVideoCount())
+				.uploadedByMe(viewerUuid == null ? null : result.uploadedBy(viewerUuid))
 				.createdAt(result.getCreatedAt())
 				.build();
 	}
 
-	public List<TopicResponseDto> toDtoList(List<TopicResult> results) {
-		return results.stream().map(this::toDto).toList();
+	public List<TopicResponseDto> toDtoList(List<TopicResult> results, UUID viewerUuid) {
+		return results.stream().map(result -> toDto(result, viewerUuid)).toList();
+	}
+
+	public TopicVideoResponseDto toVideoDto(TopicVideoResult result) {
+		return TopicVideoResponseDto.builder()
+				.videoUuid(result.getVideoUuid())
+				.userUuid(result.getUserUuid())
+				.createdAt(result.getCreatedAt())
+				.build();
 	}
 
 	public TopicCalendarResponse toCalendarDto(TopicCalendarResult result) {

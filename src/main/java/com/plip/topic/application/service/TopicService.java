@@ -3,6 +3,7 @@ package com.plip.topic.application.service;
 import com.plip.topic.application.port.in.CreateTopicUseCase;
 import com.plip.topic.application.port.in.DeleteTopicUseCase;
 import com.plip.topic.application.port.in.GetTopicCalendarUseCase;
+import com.plip.topic.application.port.in.GetTopicUseCase;
 import com.plip.topic.application.port.in.ListTopicsUseCase;
 import com.plip.topic.application.port.in.UpdateTopicUseCase;
 import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
@@ -13,9 +14,7 @@ import com.plip.topic.application.port.out.TopicAgitSyncEventPort;
 import com.plip.topic.application.port.out.TopicCreatedEventPort;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
-import com.plip.topic.application.port.out.TopicVideoEventPort;
 import com.plip.topic.domain.model.Topic;
-import com.plip.topic.domain.model.TopicVideo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,11 +29,10 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase, CreateTopicUseCase, UpdateTopicUseCase, DeleteTopicUseCase {
+public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopicCalendarUseCase, CreateTopicUseCase, UpdateTopicUseCase, DeleteTopicUseCase {
 
 	private final TopicPersistencePort topicPersistencePort;
 	private final TopicReadCachePort topicReadCachePort;
-	private final TopicVideoEventPort topicVideoEventPort;
 	private final TopicCreatedEventPort topicCreatedEventPort;
 	private final TopicAgitSyncEventPort topicAgitSyncEventPort;
 
@@ -45,11 +43,9 @@ public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase,
 				request.getAgitUuid(),
 				request.getCreatorUuid(),
 				request.getTitle(),
-				request.getStartAt(),
-				request.getVideoUuids()
+				request.getStartAt()
 		));
 		topicReadCachePort.evict(saved.getAgitUuid(), saved.getStartAt().toLocalDate());
-		publishAttachedAfterCommit(saved);
 		publishCreatedAfterCommit(saved);
 		return TopicResult.from(saved);
 	}
@@ -71,6 +67,16 @@ public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase,
 			topicReadCachePort.evict(saved.getAgitUuid(), newDay);
 		}
 		return TopicResult.from(saved);
+	}
+
+	@Override
+	public TopicResult get(UUID topicUuid) {
+		if (topicUuid == null) {
+			throw new IllegalArgumentException("topicUuid는 필수입니다.");
+		}
+		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
+				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
+		return TopicResult.from(topic);
 	}
 
 	@Override
@@ -124,31 +130,6 @@ public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase,
 				.yearMonth(yearMonth)
 				.activeDates(activeDates)
 				.build();
-	}
-
-	private void publishAttachedAfterCommit(Topic saved) {
-		List<UUID> videoUuids = saved.getVideos().stream()
-				.map(TopicVideo::getVideoUuid)
-				.toList();
-		if (videoUuids.isEmpty()) {
-			return;
-		}
-		Runnable publish = () -> videoUuids.forEach(videoUuid -> topicVideoEventPort.publishAttached(
-				saved.getTopicUuid(),
-				saved.getAgitUuid(),
-				videoUuid,
-				saved.getCreatorUuid()
-		));
-		if (TransactionSynchronizationManager.isActualTransactionActive()) {
-			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-				@Override
-				public void afterCommit() {
-					publish.run();
-				}
-			});
-			return;
-		}
-		publish.run();
 	}
 
 	private void publishCreatedAfterCommit(Topic saved) {

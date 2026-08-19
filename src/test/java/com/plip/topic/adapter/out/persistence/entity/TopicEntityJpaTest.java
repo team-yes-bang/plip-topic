@@ -44,7 +44,7 @@ class TopicEntityJpaTest {
 	void save_cascadesTopicVideos() {
 		UUID videoUuid = UUID.randomUUID();
 		TopicEntity topic = newTopic("영상 토픽", UUID.randomUUID());
-		topic.addVideo(videoUuid);
+		topic.addVideo(videoUuid, UUID.randomUUID());
 
 		topicJpaRepository.saveAndFlush(topic);
 		entityManager.clear();
@@ -62,8 +62,8 @@ class TopicEntityJpaTest {
 	void save_rejectsDuplicateVideoUuidOnSameTopic() {
 		UUID videoUuid = UUID.randomUUID();
 		TopicEntity topic = newTopic("중복 비디오", UUID.randomUUID());
-		topic.addVideo(videoUuid);
-		topic.addVideo(videoUuid);
+		topic.addVideo(videoUuid, UUID.randomUUID());
+		topic.addVideo(videoUuid, UUID.randomUUID());
 
 		assertThatThrownBy(() -> topicJpaRepository.saveAndFlush(topic))
 				.isInstanceOf(DataIntegrityViolationException.class);
@@ -72,7 +72,7 @@ class TopicEntityJpaTest {
 	@Test
 	void findByTopicUuid_excludesSoftDeletedTopic() {
 		TopicEntity topic = topicJpaRepository.saveAndFlush(newTopic("삭제될 토픽", UUID.randomUUID()));
-		topic.addVideo(UUID.randomUUID());
+		topic.addVideo(UUID.randomUUID(), UUID.randomUUID());
 		topicJpaRepository.saveAndFlush(topic);
 
 		topic.softDelete(LocalDateTime.now());
@@ -111,8 +111,8 @@ class TopicEntityJpaTest {
 		UUID activeVideo = UUID.randomUUID();
 		UUID deletedVideo = UUID.randomUUID();
 		TopicEntity topic = newTopic("영상 토픽", UUID.randomUUID());
-		topic.addVideo(activeVideo);
-		topic.addVideo(deletedVideo);
+		topic.addVideo(activeVideo, UUID.randomUUID());
+		topic.addVideo(deletedVideo, UUID.randomUUID());
 		topicJpaRepository.saveAndFlush(topic);
 
 		topic.getVideos().stream()
