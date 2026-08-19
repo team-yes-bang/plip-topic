@@ -5,12 +5,11 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Getter
 @Builder
-@Schema(description = "토픽 응답")
+@Schema(description = "토픽(주제) 응답. 영상 격자는 GET /topics/{topicUuid}/videos")
 public class TopicResponseDto {
 
 	@Schema(description = "토픽 UUID")
@@ -28,8 +27,11 @@ public class TopicResponseDto {
 	@Schema(description = "진행 날짜")
 	private LocalDateTime startAt;
 
-	@Schema(description = "연결된 비디오 UUID 목록")
-	private List<UUID> videoUuids;
+	@Schema(description = "붙은 영상 수")
+	private int videoCount;
+
+	@Schema(description = "조회한 사용자가 이 토픽에 영상을 올렸는지. userUuid 쿼리가 없으면 null")
+	private Boolean uploadedByMe;
 
 	@Schema(description = "생성 시각")
 	private LocalDateTime createdAt;

@@ -19,7 +19,7 @@ public class TopicPersistenceMapper {
 				.title(topic.getTitle())
 				.startAt(topic.getStartAt())
 				.build();
-		topic.getVideos().forEach(video -> entity.addVideo(video.getVideoUuid()));
+		topic.getVideos().forEach(video -> entity.addVideo(video.getVideoUuid(), video.getUserUuid()));
 		return entity;
 	}
 
@@ -29,6 +29,7 @@ public class TopicPersistenceMapper {
 				.filter(video -> video.getDeletedAt() == null)
 				.map(video -> TopicVideo.reconstitute(
 						video.getVideoUuid(),
+						video.getUserUuid(),
 						video.getCreatedAt(),
 						video.getDeletedAt()
 				))

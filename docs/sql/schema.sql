@@ -19,9 +19,11 @@ CREATE TABLE topic_video (
     id         BIGINT AUTO_INCREMENT PRIMARY KEY,
     topic_id   BIGINT NOT NULL,
     video_uuid BINARY(16) NOT NULL COMMENT '미디어 서비스 논리적 참조 (no FK)',
+    user_uuid  BINARY(16) NOT NULL COMMENT '업로더. 토픽당 활성 영상 1개(애플리케이션 규칙)',
     created_at DATETIME(6) NOT NULL,
     deleted_at DATETIME(6) NULL,
     UNIQUE KEY uk_topic_video (topic_id, video_uuid),
+    KEY idx_topic_video_user (topic_id, user_uuid),
     CONSTRAINT fk_topic_video_topic FOREIGN KEY (topic_id) REFERENCES topic (id)
 );
 

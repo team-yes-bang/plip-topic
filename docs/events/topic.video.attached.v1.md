@@ -35,7 +35,7 @@ topic-service가 `topic_video`에 영상을 붙인 뒤 발행한다. diary-servi
 
 ## Producer 동작 (topic-service)
 
-1. `POST /api/v1/topics`가 `videoUuids`를 포함해 커밋되면 영상마다 1건 발행한다.
+1. `POST /api/v1/topics/{topicUuid}/videos`가 커밋되면 1건 발행한다. 같은 영상 멱등 재요청은 발행하지 않는다.
 2. Kafka inbound(`video.uploaded`, `diary.video.bound`)로 붙인 영상은 **재발행하지 않는다**. 루프 방지.
 
 ## Consumer 동작 (diary-service, 구현 대상)

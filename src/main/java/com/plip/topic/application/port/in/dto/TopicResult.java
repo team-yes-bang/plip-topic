@@ -20,18 +20,30 @@ public class TopicResult {
 	private UUID creatorUuid;
 	private String title;
 	private LocalDateTime startAt;
-	private List<UUID> videoUuids;
+	private int videoCount;
+	private List<UUID> uploaderUuids;
 	private LocalDateTime createdAt;
 
 	public static TopicResult from(Topic topic) {
+		List<UUID> uploaders = topic.getVideos().stream()
+				.map(TopicVideo::getUserUuid)
+				.toList();
 		return TopicResult.builder()
 				.topicUuid(topic.getTopicUuid())
 				.agitUuid(topic.getAgitUuid())
 				.creatorUuid(topic.getCreatorUuid())
 				.title(topic.getTitle())
 				.startAt(topic.getStartAt())
-				.videoUuids(topic.getVideos().stream().map(TopicVideo::getVideoUuid).toList())
+				.videoCount(topic.videoCount())
+				.uploaderUuids(uploaders)
 				.createdAt(topic.getCreatedAt())
 				.build();
+	}
+
+	public boolean uploadedBy(UUID userUuid) {
+		if (userUuid == null || uploaderUuids == null) {
+			return false;
+		}
+		return uploaderUuids.contains(userUuid);
 	}
 }

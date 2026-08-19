@@ -27,16 +27,17 @@ class DiaryVideoBoundConsumerTest {
 	void consume_attachesWhenTopicUuidPresent() {
 		UUID topicUuid = UUID.randomUUID();
 		UUID videoUuid = UUID.randomUUID();
+		UUID userUuid = UUID.randomUUID();
 
-		diaryVideoBoundConsumer.consume(new DiaryVideoBoundEvent(UUID.randomUUID(), topicUuid, videoUuid, UUID.randomUUID()));
+		diaryVideoBoundConsumer.consume(new DiaryVideoBoundEvent(UUID.randomUUID(), topicUuid, videoUuid, userUuid));
 
-		verify(attachTopicVideoUseCase).attach(topicUuid, videoUuid);
+		verify(attachTopicVideoUseCase).tryAttach(topicUuid, videoUuid, userUuid);
 	}
 
 	@Test
 	void consume_skipsWhenTopicUuidMissing() {
 		diaryVideoBoundConsumer.consume(new DiaryVideoBoundEvent(UUID.randomUUID(), null, UUID.randomUUID(), UUID.randomUUID()));
 
-		verify(attachTopicVideoUseCase, never()).attach(any(), any());
+		verify(attachTopicVideoUseCase, never()).tryAttach(any(), any(), any());
 	}
 }

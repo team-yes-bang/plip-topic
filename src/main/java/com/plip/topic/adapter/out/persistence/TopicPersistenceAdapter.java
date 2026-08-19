@@ -86,19 +86,33 @@ public class TopicPersistenceAdapter implements TopicPersistencePort {
 
 	@Override
 	@Transactional
-	public boolean addVideoIfAbsent(UUID topicUuid, UUID videoUuid) {
+	public boolean addVideoIfAbsent(UUID topicUuid, UUID videoUuid, UUID userUuid) {
+		if (topicUuid == null || videoUuid == null || userUuid == null) {
+			return false;
+		}
 		return topicJpaRepository.findByTopicUuidAndDeletedAtIsNull(topicUuid)
 				.map(entity -> {
-					boolean alreadyAttached = entity.getVideos().stream()
-							.anyMatch(video -> videoUuid.equals(video.getVideoUuid()));
-					if (alreadyAttached) {
+					Topic topic = topicPersistenceMapper.toDomain(entity);
+					int before = topic.videoCount();
+					Topic attached = topic.attachVideo(userUuid, videoUuid);
+					if (attached.videoCount() == before) {
 						return false;
 					}
-					entity.addVideo(videoUuid);
+					entity.addVideo(videoUuid, userUuid);
 					applyCalendarDelta(entity.getAgitUuid(), entity.getStartAt().toLocalDate(), 0, 1);
 					return true;
 				})
 				.orElse(false);
+	}
+
+	@Override
+	@Transactional
+	public void removeVideo(UUID topicUuid, UUID videoUuid, UUID userUuid) {
+		TopicEntity entity = topicJpaRepository.findByTopicUuidAndDeletedAtIsNull(topicUuid)
+				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
+		topicPersistenceMapper.toDomain(entity).detachVideo(userUuid, videoUuid);
+		entity.removeVideo(videoUuid);
+		applyCalendarDelta(entity.getAgitUuid(), entity.getStartAt().toLocalDate(), 0, -1);
 	}
 
 	private void applyCalendarDelta(UUID agitUuid, LocalDate day, int topicDelta, int videoDelta) {

@@ -13,7 +13,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,7 +39,7 @@ class TopicAgitSyncKafkaAdapterTest {
 	void publishBoundAndStarted_sendsAgitContractPayloadToBothTopics() {
 		UUID agitUuid = UUID.randomUUID();
 		LocalDateTime startAt = LocalDateTime.of(2026, 8, 18, 0, 0);
-		Topic topic = Topic.create(agitUuid, UUID.randomUUID(), "점심 메뉴", startAt, List.of());
+		Topic topic = Topic.create(agitUuid, UUID.randomUUID(), "점심 메뉴", startAt);
 
 		adapter.publishBoundAndStarted(topic);
 
@@ -60,7 +59,7 @@ class TopicAgitSyncKafkaAdapterTest {
 	@Test
 	void publishUnbound_sendsAgitContractPayloadWithoutStartedAt() {
 		UUID agitUuid = UUID.randomUUID();
-		Topic topic = Topic.create(agitUuid, UUID.randomUUID(), "점심 메뉴", LocalDateTime.of(2026, 8, 18, 0, 0), List.of());
+		Topic topic = Topic.create(agitUuid, UUID.randomUUID(), "점심 메뉴", LocalDateTime.of(2026, 8, 18, 0, 0));
 
 		adapter.publishUnbound(topic);
 
