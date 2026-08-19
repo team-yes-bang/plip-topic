@@ -9,6 +9,7 @@ import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
 import com.plip.topic.application.port.in.dto.TopicCalendarResult;
 import com.plip.topic.application.port.in.dto.TopicResult;
 import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
+import com.plip.topic.application.port.out.TopicAgitSyncEventPort;
 import com.plip.topic.application.port.out.TopicCreatedEventPort;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
@@ -35,6 +36,7 @@ public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase,
 	private final TopicReadCachePort topicReadCachePort;
 	private final TopicVideoEventPort topicVideoEventPort;
 	private final TopicCreatedEventPort topicCreatedEventPort;
+	private final TopicAgitSyncEventPort topicAgitSyncEventPort;
 
 	@Override
 	@Transactional
@@ -149,7 +151,10 @@ public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase,
 	}
 
 	private void publishCreatedAfterCommit(Topic saved) {
-		Runnable publish = () -> topicCreatedEventPort.publishCreated(saved);
+		Runnable publish = () -> {
+			topicCreatedEventPort.publishCreated(saved);
+			topicAgitSyncEventPort.publishBoundAndStarted(saved);
+		};
 		if (TransactionSynchronizationManager.isActualTransactionActive()) {
 			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 				@Override

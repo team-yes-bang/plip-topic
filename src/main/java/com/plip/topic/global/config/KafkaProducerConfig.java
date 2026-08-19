@@ -1,5 +1,6 @@
 package com.plip.topic.global.config;
 
+import com.plip.topic.adapter.out.kafka.dto.TopicAgitSyncEvent;
 import com.plip.topic.adapter.out.kafka.dto.TopicCreatedEvent;
 import com.plip.topic.adapter.out.kafka.dto.TopicVideoAttachedEvent;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -22,6 +23,18 @@ public class KafkaProducerConfig {
 
 	@Value("${spring.kafka.bootstrap-servers:localhost:9092}")
 	private String bootstrapServers;
+
+	@Bean
+	public ProducerFactory<String, TopicAgitSyncEvent> topicAgitSyncProducerFactory() {
+		return new DefaultKafkaProducerFactory<>(producerProps());
+	}
+
+	@Bean
+	public KafkaTemplate<String, TopicAgitSyncEvent> topicAgitSyncKafkaTemplate(
+			ProducerFactory<String, TopicAgitSyncEvent> topicAgitSyncProducerFactory
+	) {
+		return new KafkaTemplate<>(topicAgitSyncProducerFactory);
+	}
 
 	@Bean
 	public ProducerFactory<String, TopicCreatedEvent> topicCreatedProducerFactory() {
