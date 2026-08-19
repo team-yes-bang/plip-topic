@@ -66,6 +66,7 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 		if (!oldDay.equals(newDay)) {
 			topicReadCachePort.evict(saved.getAgitUuid(), newDay);
 		}
+		publishBoundAndStartedAfterCommit(saved);
 		return TopicResult.from(saved);
 	}
 
@@ -137,6 +138,10 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 			topicCreatedEventPort.publishCreated(saved);
 			topicAgitSyncEventPort.publishBoundAndStarted(saved);
 		});
+	}
+
+	private void publishBoundAndStartedAfterCommit(Topic saved) {
+		afterCommit(() -> topicAgitSyncEventPort.publishBoundAndStarted(saved));
 	}
 
 	private void publishUnboundAfterCommit(Topic topic) {
