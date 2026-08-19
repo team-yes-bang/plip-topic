@@ -5,4 +5,6 @@ import com.plip.topic.domain.model.Topic;
 public interface TopicAgitSyncEventPort {
 
 	void publishBoundAndStarted(Topic topic);
+
+	void publishUnbound(Topic topic);
 }

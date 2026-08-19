@@ -25,19 +25,35 @@ public class TopicAgitSyncKafkaAdapter implements TopicAgitSyncEventPort {
 	@Value("${app.kafka.topics.topic-started:topic.started}")
 	private String startedTopic;
 
+	@Value("${app.kafka.topics.topic-unbound:topic.unbound}")
+	private String unboundTopic;
+
 	@Override
 	public void publishBoundAndStarted(Topic saved) {
 		Instant startedAt = saved.getStartAt() == null
 				? null
 				: saved.getStartAt().toInstant(ZoneOffset.UTC);
-		TopicAgitSyncEvent event = new TopicAgitSyncEvent(
-				saved.getAgitUuid(),
-				saved.getTopicUuid().toString(),
-				startedAt,
-				Instant.now()
-		);
+		TopicAgitSyncEvent event = agitSyncEvent(saved, startedAt);
 		String key = saved.getAgitUuid().toString();
 		topicAgitSyncKafkaTemplate.send(boundTopic, key, event);
 		topicAgitSyncKafkaTemplate.send(startedTopic, key, event);
+	}
+
+	@Override
+	public void publishUnbound(Topic topic) {
+		topicAgitSyncKafkaTemplate.send(
+				unboundTopic,
+				topic.getAgitUuid().toString(),
+				agitSyncEvent(topic, null)
+		);
+	}
+
+	private static TopicAgitSyncEvent agitSyncEvent(Topic topic, Instant startedAt) {
+		return new TopicAgitSyncEvent(
+				topic.getAgitUuid(),
+				topic.getTopicUuid().toString(),
+				startedAt,
+				Instant.now()
+		);
 	}
 }

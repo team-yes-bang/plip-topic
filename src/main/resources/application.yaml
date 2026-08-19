@@ -28,6 +28,7 @@ app:
       topic-created: topic.created
       topic-bound: topic.bound
       topic-started: topic.started
+      topic-unbound: topic.unbound
       topic-video-attached: topic.video.attached
 
 springdoc:

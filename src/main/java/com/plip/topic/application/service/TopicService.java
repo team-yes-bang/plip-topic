@@ -84,6 +84,7 @@ public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase,
 		topic.assertDeletable();
 		topicPersistencePort.deleteByTopicUuid(topicUuid);
 		topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
+		publishUnboundAfterCommit(topic);
 	}
 
 	@Override
@@ -151,10 +152,17 @@ public class TopicService implements ListTopicsUseCase, GetTopicCalendarUseCase,
 	}
 
 	private void publishCreatedAfterCommit(Topic saved) {
-		Runnable publish = () -> {
+		afterCommit(() -> {
 			topicCreatedEventPort.publishCreated(saved);
 			topicAgitSyncEventPort.publishBoundAndStarted(saved);
-		};
+		});
+	}
+
+	private void publishUnboundAfterCommit(Topic topic) {
+		afterCommit(() -> topicAgitSyncEventPort.publishUnbound(topic));
+	}
+
+	private void afterCommit(Runnable publish) {
 		if (TransactionSynchronizationManager.isActualTransactionActive()) {
 			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 				@Override
