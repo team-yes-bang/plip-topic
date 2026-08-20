@@ -17,6 +17,7 @@ import com.plip.topic.application.port.out.TopicReadCachePort;
 import com.plip.topic.application.port.out.TopicViewerSnapshotPort;
 import com.plip.topic.domain.model.Topic;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -27,6 +28,7 @@ import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -48,6 +50,7 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 				request.getStartAt()
 		));
 		topicReadCachePort.evict(saved.getAgitUuid(), saved.getStartAt().toLocalDate());
+		saveSnapshotAfterCommit(saved);
 		publishCreatedAfterCommit(saved);
 		return TopicResult.from(saved);
 	}
@@ -68,7 +71,7 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 		if (!oldDay.equals(newDay)) {
 			topicReadCachePort.evict(saved.getAgitUuid(), newDay);
 		}
-		topicViewerSnapshotPort.delete(saved.getTopicUuid());
+		saveSnapshotAfterCommit(saved);
 		publishBoundAndStartedAfterCommit(saved);
 		return TopicResult.from(saved);
 	}
@@ -89,7 +92,7 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 		topic.assertDeletable();
 		topicPersistencePort.deleteByTopicUuid(topicUuid);
 		topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
-		topicViewerSnapshotPort.delete(topicUuid);
+		deleteSnapshotAfterCommit(topicUuid);
 		publishUnboundAfterCommit(topic);
 	}
 
@@ -140,9 +143,33 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 				.orElseGet(() -> {
 					Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
 							.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
-					topicViewerSnapshotPort.save(topic);
+					saveSnapshotQuietly(topic);
 					return topic;
 				});
+	}
+
+	private void saveSnapshotAfterCommit(Topic topic) {
+		afterCommit(() -> saveSnapshotQuietly(topic));
+	}
+
+	private void deleteSnapshotAfterCommit(UUID topicUuid) {
+		afterCommit(() -> deleteSnapshotQuietly(topicUuid));
+	}
+
+	private void saveSnapshotQuietly(Topic topic) {
+		try {
+			topicViewerSnapshotPort.save(topic);
+		} catch (RuntimeException exception) {
+			log.warn("topic viewer snapshot save failed topicUuid={}", topic.getTopicUuid(), exception);
+		}
+	}
+
+	private void deleteSnapshotQuietly(UUID topicUuid) {
+		try {
+			topicViewerSnapshotPort.delete(topicUuid);
+		} catch (RuntimeException exception) {
+			log.warn("topic viewer snapshot delete failed topicUuid={}", topicUuid, exception);
+		}
 	}
 
 	private void publishCreatedAfterCommit(Topic saved) {
