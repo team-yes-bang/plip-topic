@@ -87,22 +87,24 @@ services:
     networks:
       - plip-net
 
-  # app.yml topic depends_on에 mongo를 넣지 않는다(develop-env에 mongo 서비스가 없을 수 있음).
-  # 이 레포 로컬 compose만 topic 기동 전에 mongo를 기다린다.
+  # 로컬 compose에는 eureka-server가 없다. app.yml 의존을 지우고 Eureka를 끈다.
   topic:
-    depends_on:
+    depends_on: !reset
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
       mongo:
         condition: service_started
-
-  # 만약 로컬에서 앱을 실행할 때 의존성(Eureka 연동 등)이 필요없다면, 다음 주석을 해제하세요.
-  # topic:
-  #   depends_on: !reset
-  #     mysql:
-  #       condition: service_healthy
-  #   environment:
-  #     EUREKA_CLIENT_ENABLED: "false"
-  #   ports:
-  #     - "${SERVER_PORT:-8804}:8080"
+    environment:
+      EUREKA_CLIENT_ENABLED: "false"
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/plip_topic
+    ports:
+      - "${SERVER_PORT:-8804}:8080"
 
 volumes:
   plip_topic_mysql_data:
