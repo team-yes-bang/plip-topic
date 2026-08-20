@@ -60,6 +60,17 @@ services:
     networks:
       - plip-net
 
+  mongo:
+    image: mongo:7.0
+    container_name: plip-topic-mongo
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - plip_topic_mongo_data:/data/db
+    networks:
+      - plip-net
+
   kafka-ui:
     image: kafbat/kafka-ui:latest
     container_name: plip-topic-kafka-ui
@@ -88,3 +99,4 @@ services:
 
 volumes:
   plip_topic_mysql_data:
+  plip_topic_mongo_data:
