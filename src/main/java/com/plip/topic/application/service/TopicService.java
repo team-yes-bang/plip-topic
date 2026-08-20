@@ -14,6 +14,7 @@ import com.plip.topic.application.port.out.TopicAgitSyncEventPort;
 import com.plip.topic.application.port.out.TopicCreatedEventPort;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
+import com.plip.topic.application.port.out.TopicViewerSnapshotPort;
 import com.plip.topic.domain.model.Topic;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 
 	private final TopicPersistencePort topicPersistencePort;
 	private final TopicReadCachePort topicReadCachePort;
+	private final TopicViewerSnapshotPort topicViewerSnapshotPort;
 	private final TopicCreatedEventPort topicCreatedEventPort;
 	private final TopicAgitSyncEventPort topicAgitSyncEventPort;
 
@@ -66,18 +68,14 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 		if (!oldDay.equals(newDay)) {
 			topicReadCachePort.evict(saved.getAgitUuid(), newDay);
 		}
+		topicViewerSnapshotPort.delete(saved.getTopicUuid());
 		publishBoundAndStartedAfterCommit(saved);
 		return TopicResult.from(saved);
 	}
 
 	@Override
 	public TopicResult get(UUID topicUuid) {
-		if (topicUuid == null) {
-			throw new IllegalArgumentException("topicUuid는 필수입니다.");
-		}
-		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
-				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
-		return TopicResult.from(topic);
+		return TopicResult.from(loadForRead(topicUuid));
 	}
 
 	@Override
@@ -91,6 +89,7 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 		topic.assertDeletable();
 		topicPersistencePort.deleteByTopicUuid(topicUuid);
 		topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
+		topicViewerSnapshotPort.delete(topicUuid);
 		publishUnboundAfterCommit(topic);
 	}
 
@@ -131,6 +130,19 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 				.yearMonth(yearMonth)
 				.activeDates(activeDates)
 				.build();
+	}
+
+	private Topic loadForRead(UUID topicUuid) {
+		if (topicUuid == null) {
+			throw new IllegalArgumentException("topicUuid는 필수입니다.");
+		}
+		return topicViewerSnapshotPort.findByTopicUuid(topicUuid)
+				.orElseGet(() -> {
+					Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
+							.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
+					topicViewerSnapshotPort.save(topic);
+					return topic;
+				});
 	}
 
 	private void publishCreatedAfterCommit(Topic saved) {

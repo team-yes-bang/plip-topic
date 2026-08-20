@@ -6,6 +6,7 @@ import com.plip.topic.application.port.out.TopicAgitSyncEventPort;
 import com.plip.topic.application.port.out.TopicCreatedEventPort;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
+import com.plip.topic.application.port.out.TopicViewerSnapshotPort;
 import com.plip.topic.domain.model.Topic;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +36,9 @@ class TopicServiceTest {
 
 	@Mock
 	private TopicReadCachePort topicReadCachePort;
+
+	@Mock
+	private TopicViewerSnapshotPort topicViewerSnapshotPort;
 
 	@Mock
 	private TopicCreatedEventPort topicCreatedEventPort;
@@ -87,12 +91,26 @@ class TopicServiceTest {
 	@Test
 	void get_returnsTopic() {
 		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
+		given(topicViewerSnapshotPort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.empty());
 		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
 
 		var result = topicService.get(topic.getTopicUuid());
 
 		assertThat(result.getTitle()).isEqualTo("제목");
 		assertThat(result.getVideoCount()).isZero();
+		verify(topicViewerSnapshotPort).save(topic);
+	}
+
+	@Test
+	void get_usesSnapshotWithoutPersistence() {
+		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
+		given(topicViewerSnapshotPort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
+
+		var result = topicService.get(topic.getTopicUuid());
+
+		assertThat(result.getTitle()).isEqualTo("제목");
+		verify(topicPersistencePort, never()).findByTopicUuid(any());
+		verify(topicViewerSnapshotPort, never()).save(any(Topic.class));
 	}
 
 	@Test
@@ -174,6 +192,7 @@ class TopicServiceTest {
 		assertThat(result.getStartAt()).isEqualTo(existing.getStartAt());
 		assertThat(result.getTopicUuid()).isEqualTo(existing.getTopicUuid());
 		verify(topicPersistencePort).update(any(Topic.class));
+		verify(topicViewerSnapshotPort).delete(existing.getTopicUuid());
 		verify(topicAgitSyncEventPort).publishBoundAndStarted(any(Topic.class));
 		verify(topicCreatedEventPort, never()).publishCreated(any(Topic.class));
 	}
@@ -189,6 +208,7 @@ class TopicServiceTest {
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("토픽이 존재하지 않습니다.");
 		verify(topicAgitSyncEventPort, never()).publishBoundAndStarted(any(Topic.class));
+		verify(topicViewerSnapshotPort, never()).delete(any());
 	}
 
 	@Test
@@ -199,6 +219,7 @@ class TopicServiceTest {
 		topicService.delete(existing.getTopicUuid());
 
 		verify(topicPersistencePort).deleteByTopicUuid(existing.getTopicUuid());
+		verify(topicViewerSnapshotPort).delete(existing.getTopicUuid());
 		verify(topicAgitSyncEventPort).publishUnbound(existing);
 	}
 
@@ -212,6 +233,7 @@ class TopicServiceTest {
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("영상이 있는 토픽은 삭제할 수 없습니다.");
 		verify(topicPersistencePort, never()).deleteByTopicUuid(existing.getTopicUuid());
+		verify(topicViewerSnapshotPort, never()).delete(any());
 		verify(topicAgitSyncEventPort, never()).publishUnbound(any(Topic.class));
 	}
 
@@ -224,5 +246,6 @@ class TopicServiceTest {
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("토픽이 존재하지 않습니다.");
 		verify(topicAgitSyncEventPort, never()).publishUnbound(any(Topic.class));
+		verify(topicViewerSnapshotPort, never()).delete(any());
 	}
 }
