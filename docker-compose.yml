@@ -87,6 +87,13 @@ services:
     networks:
       - plip-net
 
+  # app.yml topic depends_on에 mongo를 넣지 않는다(develop-env에 mongo 서비스가 없을 수 있음).
+  # 이 레포 로컬 compose만 topic 기동 전에 mongo를 기다린다.
+  topic:
+    depends_on:
+      mongo:
+        condition: service_started
+
   # 만약 로컬에서 앱을 실행할 때 의존성(Eureka 연동 등)이 필요없다면, 다음 주석을 해제하세요.
   # topic:
   #   depends_on: !reset
