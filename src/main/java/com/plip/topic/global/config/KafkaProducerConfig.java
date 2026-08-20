@@ -1,5 +1,8 @@
 package com.plip.topic.global.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.plip.topic.adapter.out.kafka.dto.TopicAgitSyncEvent;
 import com.plip.topic.adapter.out.kafka.dto.TopicCreatedEvent;
 import com.plip.topic.adapter.out.kafka.dto.TopicVideoAttachedEvent;
@@ -26,7 +29,7 @@ public class KafkaProducerConfig {
 
 	@Bean
 	public ProducerFactory<String, TopicAgitSyncEvent> topicAgitSyncProducerFactory() {
-		return new DefaultKafkaProducerFactory<>(producerProps());
+		return producerFactory();
 	}
 
 	@Bean
@@ -38,7 +41,7 @@ public class KafkaProducerConfig {
 
 	@Bean
 	public ProducerFactory<String, TopicCreatedEvent> topicCreatedProducerFactory() {
-		return new DefaultKafkaProducerFactory<>(producerProps());
+		return producerFactory();
 	}
 
 	@Bean
@@ -50,7 +53,7 @@ public class KafkaProducerConfig {
 
 	@Bean
 	public ProducerFactory<String, TopicVideoAttachedEvent> topicVideoAttachedProducerFactory() {
-		return new DefaultKafkaProducerFactory<>(producerProps());
+		return producerFactory();
 	}
 
 	@Bean
@@ -60,12 +63,18 @@ public class KafkaProducerConfig {
 		return new KafkaTemplate<>(topicVideoAttachedProducerFactory);
 	}
 
-	private Map<String, Object> producerProps() {
+	static ObjectMapper isoObjectMapper() {
+		ObjectMapper objectMapper = new ObjectMapper();
+		objectMapper.registerModule(new JavaTimeModule());
+		objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+		return objectMapper;
+	}
+
+	private <T> ProducerFactory<String, T> producerFactory() {
 		Map<String, Object> props = new HashMap<>();
 		props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-		props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-		props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-		props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
-		return props;
+		JsonSerializer<T> valueSerializer = new JsonSerializer<>(isoObjectMapper());
+		valueSerializer.setAddTypeInfo(false);
+		return new DefaultKafkaProducerFactory<>(props, new StringSerializer(), valueSerializer);
 	}
 }

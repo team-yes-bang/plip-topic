@@ -82,6 +82,32 @@ class TopicVideoServiceTest {
 	}
 
 	@Test
+	void attachOrThrow_publishesAttachedOnNewVideo() {
+		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
+		UUID videoUuid = UUID.randomUUID();
+		UUID userUuid = UUID.randomUUID();
+		Topic withVideo = topic.attachVideo(userUuid, videoUuid);
+		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid()))
+				.willReturn(Optional.of(topic), Optional.of(withVideo));
+		given(topicPersistencePort.addVideoIfAbsent(topic.getTopicUuid(), videoUuid, userUuid)).willReturn(true);
+
+		assertThat(topicVideoService.attachOrThrow(topic.getTopicUuid(), videoUuid, userUuid)).isTrue();
+		verify(topicVideoEventPort).publishAttached(topic.getTopicUuid(), topic.getAgitUuid(), videoUuid, userUuid);
+	}
+
+	@Test
+	void attachOrThrow_doesNotPublishWhenSameVideo() {
+		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
+		UUID videoUuid = UUID.randomUUID();
+		UUID userUuid = UUID.randomUUID();
+		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
+		given(topicPersistencePort.addVideoIfAbsent(topic.getTopicUuid(), videoUuid, userUuid)).willReturn(false);
+
+		assertThat(topicVideoService.attachOrThrow(topic.getTopicUuid(), videoUuid, userUuid)).isFalse();
+		verify(topicVideoEventPort, never()).publishAttached(any(), any(), any(), any());
+	}
+
+	@Test
 	void detach_removesVideoAndEvicts() {
 		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
 		UUID videoUuid = UUID.randomUUID();
