@@ -11,6 +11,7 @@ import com.plip.topic.application.port.out.TopicViewerSnapshotPort;
 import com.plip.topic.domain.model.Topic;
 import com.plip.topic.domain.model.TopicVideoLimitException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -19,6 +20,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -40,7 +42,7 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 			if (attached) {
 				topicPersistencePort.findByTopicUuid(topicUuid).ifPresent(topic -> {
 					topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
-					topicViewerSnapshotPort.delete(topicUuid);
+					saveSnapshotAfterCommit(topic);
 				});
 			}
 			return attached;
@@ -66,7 +68,8 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 		boolean attached = topicPersistencePort.addVideoIfAbsent(topicUuid, videoUuid, userUuid);
 		if (attached) {
 			topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
-			topicViewerSnapshotPort.delete(topicUuid);
+			Topic projected = topicPersistencePort.findByTopicUuid(topicUuid).orElse(topic);
+			saveSnapshotAfterCommit(projected);
 			publishAttachedAfterCommit(topic, videoUuid, userUuid);
 		}
 		return attached;
@@ -82,7 +85,8 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
 		topicPersistencePort.removeVideo(topicUuid, videoUuid, userUuid);
 		topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
-		topicViewerSnapshotPort.delete(topicUuid);
+		Topic projected = topicPersistencePort.findByTopicUuid(topicUuid).orElse(topic);
+		saveSnapshotAfterCommit(projected);
 	}
 
 	@Override
@@ -100,27 +104,42 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 				.orElseGet(() -> {
 					Topic loaded = topicPersistencePort.findByTopicUuid(topicUuid)
 							.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
-					topicViewerSnapshotPort.save(loaded);
+					saveSnapshotQuietly(loaded);
 					return loaded;
 				});
 	}
 
-	private void publishAttachedAfterCommit(Topic topic, UUID videoUuid, UUID userUuid) {
-		Runnable publish = () -> topicVideoEventPort.publishAttached(
-				topic.getTopicUuid(),
-				topic.getAgitUuid(),
-				videoUuid,
-				userUuid
-		);
+	private void saveSnapshotAfterCommit(Topic topic) {
+		afterCommit(() -> saveSnapshotQuietly(topic));
+	}
+
+	private void saveSnapshotQuietly(Topic topic) {
+		try {
+			topicViewerSnapshotPort.save(topic);
+		} catch (RuntimeException exception) {
+			log.warn("topic viewer snapshot save failed topicUuid={}", topic.getTopicUuid(), exception);
+		}
+	}
+
+	private void afterCommit(Runnable action) {
 		if (TransactionSynchronizationManager.isActualTransactionActive()) {
 			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 				@Override
 				public void afterCommit() {
-					publish.run();
+					action.run();
 				}
 			});
 			return;
 		}
-		publish.run();
+		action.run();
+	}
+
+	private void publishAttachedAfterCommit(Topic topic, UUID videoUuid, UUID userUuid) {
+		afterCommit(() -> topicVideoEventPort.publishAttached(
+				topic.getTopicUuid(),
+				topic.getAgitUuid(),
+				videoUuid,
+				userUuid
+		));
 	}
 }

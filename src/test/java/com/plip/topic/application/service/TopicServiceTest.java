@@ -149,6 +149,7 @@ class TopicServiceTest {
 		assertThat(result.getVideoCount()).isZero();
 		verify(topicPersistencePort).save(any(Topic.class));
 		verify(topicReadCachePort).evict(agitUuid, startAt.toLocalDate());
+		verify(topicViewerSnapshotPort).save(any(Topic.class));
 		verify(topicCreatedEventPort).publishCreated(any(Topic.class));
 		verify(topicAgitSyncEventPort).publishBoundAndStarted(any(Topic.class));
 	}
@@ -192,7 +193,8 @@ class TopicServiceTest {
 		assertThat(result.getStartAt()).isEqualTo(existing.getStartAt());
 		assertThat(result.getTopicUuid()).isEqualTo(existing.getTopicUuid());
 		verify(topicPersistencePort).update(any(Topic.class));
-		verify(topicViewerSnapshotPort).delete(existing.getTopicUuid());
+		verify(topicViewerSnapshotPort).save(any(Topic.class));
+		verify(topicViewerSnapshotPort, never()).delete(any());
 		verify(topicAgitSyncEventPort).publishBoundAndStarted(any(Topic.class));
 		verify(topicCreatedEventPort, never()).publishCreated(any(Topic.class));
 	}
@@ -209,6 +211,7 @@ class TopicServiceTest {
 				.hasMessage("토픽이 존재하지 않습니다.");
 		verify(topicAgitSyncEventPort, never()).publishBoundAndStarted(any(Topic.class));
 		verify(topicViewerSnapshotPort, never()).delete(any());
+		verify(topicViewerSnapshotPort, never()).save(any(Topic.class));
 	}
 
 	@Test
@@ -234,6 +237,7 @@ class TopicServiceTest {
 				.hasMessage("영상이 있는 토픽은 삭제할 수 없습니다.");
 		verify(topicPersistencePort, never()).deleteByTopicUuid(existing.getTopicUuid());
 		verify(topicViewerSnapshotPort, never()).delete(any());
+		verify(topicViewerSnapshotPort, never()).save(any(Topic.class));
 		verify(topicAgitSyncEventPort, never()).publishUnbound(any(Topic.class));
 	}
 

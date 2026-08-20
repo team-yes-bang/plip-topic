@@ -58,7 +58,7 @@ class TopicVideoServiceTest {
 		assertThat(topicVideoService.tryAttach(topicUuid, videoUuid, userUuid)).isTrue();
 		verify(topicPersistencePort).addVideoIfAbsent(topicUuid, videoUuid, userUuid);
 		verify(topicReadCachePort).evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
-		verify(topicViewerSnapshotPort).delete(topicUuid);
+		verify(topicViewerSnapshotPort).save(topic);
 		verify(topicVideoEventPort, never()).publishAttached(any(), any(), any(), any());
 	}
 
@@ -68,6 +68,7 @@ class TopicVideoServiceTest {
 
 		assertThat(topicVideoService.tryAttach(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())).isFalse();
 		verify(topicReadCachePort, never()).evict(any(), any());
+		verify(topicViewerSnapshotPort, never()).save(any(Topic.class));
 	}
 
 	@Test
@@ -91,7 +92,8 @@ class TopicVideoServiceTest {
 
 		verify(topicPersistencePort).removeVideo(topic.getTopicUuid(), videoUuid, userUuid);
 		verify(topicReadCachePort).evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
-		verify(topicViewerSnapshotPort).delete(topic.getTopicUuid());
+		verify(topicViewerSnapshotPort).save(topic);
+		verify(topicViewerSnapshotPort, never()).delete(any());
 	}
 
 	@Test
