@@ -40,4 +40,18 @@ class VideoUploadedConsumerTest {
 
 		verify(attachTopicVideoUseCase, never()).tryAttach(any(), any(), any());
 	}
+
+	@Test
+	void consume_skipsWhenUserUuidMissing() {
+		videoUploadedConsumer.consume(new VideoUploadedEvent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), null));
+
+		verify(attachTopicVideoUseCase, never()).tryAttach(any(), any(), any());
+	}
+
+	@Test
+	void consume_skipsWhenVideoUuidMissing() {
+		videoUploadedConsumer.consume(new VideoUploadedEvent(UUID.randomUUID(), UUID.randomUUID(), null, UUID.randomUUID()));
+
+		verify(attachTopicVideoUseCase, never()).tryAttach(any(), any(), any());
+	}
 }

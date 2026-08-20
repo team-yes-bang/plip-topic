@@ -40,4 +40,11 @@ class DiaryVideoBoundConsumerTest {
 
 		verify(attachTopicVideoUseCase, never()).tryAttach(any(), any(), any());
 	}
+
+	@Test
+	void consume_skipsWhenUserUuidMissing() {
+		diaryVideoBoundConsumer.consume(new DiaryVideoBoundEvent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), null));
+
+		verify(attachTopicVideoUseCase, never()).tryAttach(any(), any(), any());
+	}
 }
