@@ -7,6 +7,7 @@ import com.plip.topic.application.port.in.dto.TopicVideoResult;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
 import com.plip.topic.application.port.out.TopicVideoEventPort;
+import com.plip.topic.application.port.out.TopicViewerSnapshotPort;
 import com.plip.topic.domain.model.Topic;
 import com.plip.topic.domain.model.TopicVideoLimitException;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 
 	private final TopicPersistencePort topicPersistencePort;
 	private final TopicReadCachePort topicReadCachePort;
+	private final TopicViewerSnapshotPort topicViewerSnapshotPort;
 	private final TopicVideoEventPort topicVideoEventPort;
 
 	@Override
@@ -36,8 +38,10 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 		try {
 			boolean attached = topicPersistencePort.addVideoIfAbsent(topicUuid, videoUuid, userUuid);
 			if (attached) {
-				topicPersistencePort.findByTopicUuid(topicUuid).ifPresent(topic ->
-						topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate()));
+				topicPersistencePort.findByTopicUuid(topicUuid).ifPresent(topic -> {
+					topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
+					topicViewerSnapshotPort.delete(topicUuid);
+				});
 			}
 			return attached;
 		} catch (TopicVideoLimitException exception) {
@@ -62,6 +66,7 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 		boolean attached = topicPersistencePort.addVideoIfAbsent(topicUuid, videoUuid, userUuid);
 		if (attached) {
 			topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
+			topicViewerSnapshotPort.delete(topicUuid);
 			publishAttachedAfterCommit(topic, videoUuid, userUuid);
 		}
 		return attached;
@@ -77,16 +82,27 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
 		topicPersistencePort.removeVideo(topicUuid, videoUuid, userUuid);
 		topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
+		topicViewerSnapshotPort.delete(topicUuid);
 	}
 
 	@Override
 	public List<TopicVideoResult> list(UUID topicUuid) {
+		return loadForRead(topicUuid).getVideos().stream()
+				.map(TopicVideoResult::from)
+				.toList();
+	}
+
+	private Topic loadForRead(UUID topicUuid) {
 		if (topicUuid == null) {
 			throw new IllegalArgumentException("topicUuid는 필수입니다.");
 		}
-		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
-				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
-		return topic.getVideos().stream().map(TopicVideoResult::from).toList();
+		return topicViewerSnapshotPort.findByTopicUuid(topicUuid)
+				.orElseGet(() -> {
+					Topic loaded = topicPersistencePort.findByTopicUuid(topicUuid)
+							.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
+					topicViewerSnapshotPort.save(loaded);
+					return loaded;
+				});
 	}
 
 	private void publishAttachedAfterCommit(Topic topic, UUID videoUuid, UUID userUuid) {
