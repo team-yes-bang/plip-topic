@@ -10,7 +10,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -35,7 +34,7 @@ class TopicControllerTest {
 	private TopicPersistencePort topicPersistencePort;
 
 	@Test
-	void list_returnsTopicsOfAgitOrderedByStartAtDesc() throws Exception {
+	void list_returnsLatestTopicsByStartAt() throws Exception {
 		UUID agitUuid = UUID.randomUUID();
 		UUID otherAgitUuid = UUID.randomUUID();
 		UUID userUuid = UUID.randomUUID();
@@ -58,18 +57,18 @@ class TopicControllerTest {
 				otherAgitUuid,
 				UUID.randomUUID(),
 				"다른 아지트",
-				LocalDateTime.of(2026, 8, 14, 0, 0)
+				LocalDateTime.of(2026, 8, 20, 0, 0)
 		));
 
 		mockMvc.perform(get("/api/v1/topics")
 						.param("agitUuid", agitUuid.toString())
-						.param("date", "2026-08-14")
 						.param("userUuid", userUuid.toString()))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.length()").value(1))
+				.andExpect(jsonPath("$.length()").value(2))
 				.andExpect(jsonPath("$[0].title").value("최근 모임"))
 				.andExpect(jsonPath("$[0].videoCount").value(1))
 				.andExpect(jsonPath("$[0].uploadedByMe").value(true))
+				.andExpect(jsonPath("$[1].title").value("이전 모임"))
 				.andExpect(jsonPath("$[0].videoUuids").doesNotExist())
 				.andExpect(jsonPath("$[0].agitUuid").value(agitUuid.toString()))
 				.andExpect(jsonPath("$[0].layout").doesNotExist());
@@ -78,15 +77,14 @@ class TopicControllerTest {
 	@Test
 	void list_returnsEmptyArrayWhenNoTopics() throws Exception {
 		mockMvc.perform(get("/api/v1/topics")
-						.param("agitUuid", UUID.randomUUID().toString())
-						.param("date", "2026-08-14"))
+						.param("agitUuid", UUID.randomUUID().toString()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(0));
 	}
 
 	@Test
-	void list_requiresDate() throws Exception {
-		mockMvc.perform(get("/api/v1/topics").param("agitUuid", UUID.randomUUID().toString()))
+	void list_requiresAgitUuid() throws Exception {
+		mockMvc.perform(get("/api/v1/topics"))
 				.andExpect(status().isBadRequest());
 	}
 
@@ -267,8 +265,7 @@ class TopicControllerTest {
 				.andExpect(status().isNoContent());
 
 		mockMvc.perform(get("/api/v1/topics")
-						.param("agitUuid", saved.getAgitUuid().toString())
-						.param("date", LocalDate.now().toString()))
+						.param("agitUuid", saved.getAgitUuid().toString()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(0));
 	}

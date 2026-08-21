@@ -90,19 +90,24 @@ class TopicPersistenceAdapterTest {
 	}
 
 	@Test
-	void findAllByAgitUuidAndDate_returnsThatDayOnly() {
+	void findLatestByAgitUuid_returnsNewestStartAtFirstAndCapsAtTen() {
 		UUID agitUuid = UUID.randomUUID();
 		UUID creatorUuid = UUID.randomUUID();
 		topicPersistencePort.save(Topic.create(
 				agitUuid, creatorUuid, "old", LocalDateTime.of(2026, 8, 1, 0, 0)));
+		for (int day = 2; day <= 12; day++) {
+			topicPersistencePort.save(Topic.create(
+					agitUuid, creatorUuid, "day-" + day, LocalDateTime.of(2026, 8, day, 0, 0)));
+		}
 		topicPersistencePort.save(Topic.create(
-				agitUuid, creatorUuid, "new", LocalDateTime.of(2026, 8, 14, 0, 0)));
-		topicPersistencePort.save(Topic.create(
-				UUID.randomUUID(), creatorUuid, "other", LocalDateTime.of(2026, 8, 14, 0, 0)));
+				UUID.randomUUID(), creatorUuid, "other", LocalDateTime.of(2026, 8, 20, 0, 0)));
 
-		List<Topic> found = topicPersistencePort.findAllByAgitUuidAndDate(agitUuid, java.time.LocalDate.of(2026, 8, 14));
+		List<Topic> found = topicPersistencePort.findLatestByAgitUuid(agitUuid, 10);
 
-		assertThat(found).extracting(Topic::getTitle).containsExactly("new");
+		assertThat(found).hasSize(10);
+		assertThat(found.get(0).getTitle()).isEqualTo("day-12");
+		assertThat(found.get(9).getTitle()).isEqualTo("day-3");
+		assertThat(found).extracting(Topic::getTitle).doesNotContain("old", "other");
 	}
 
 	@Test

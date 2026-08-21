@@ -20,18 +20,14 @@ public interface TopicJpaRepository extends JpaRepository<TopicEntity, Long> {
 			""")
 	Optional<TopicEntity> findByTopicUuidAndDeletedAtIsNull(@Param("topicUuid") UUID topicUuid);
 
-	@EntityGraph(attributePaths = "videos")
 	@Query("""
-			SELECT DISTINCT t FROM TopicEntity t
+			SELECT t FROM TopicEntity t
 			WHERE t.agitUuid = :agitUuid
 			  AND t.deletedAt IS NULL
-			  AND t.startAt >= :from
-			  AND t.startAt < :to
-			ORDER BY t.startAt DESC
+			ORDER BY t.startAt DESC, t.createdAt DESC
 			""")
-	List<TopicEntity> findAllByAgitUuidAndStartAtRange(
+	List<TopicEntity> findLatestByAgitUuid(
 			@Param("agitUuid") UUID agitUuid,
-			@Param("from") java.time.LocalDateTime from,
-			@Param("to") java.time.LocalDateTime to
+			org.springframework.data.domain.Pageable pageable
 	);
 }

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -84,7 +85,7 @@ class TopicEntityJpaTest {
 	}
 
 	@Test
-	void findAllByAgitUuid_returnsActiveTopicsOrderedByStartAtDesc() {
+	void findLatestByAgitUuid_returnsActiveTopicsOrderedByStartAtDesc() {
 		UUID agitA = UUID.randomUUID();
 		UUID agitB = UUID.randomUUID();
 		topicJpaRepository.saveAndFlush(newTopic("A-old", agitA, LocalDateTime.of(2026, 8, 1, 0, 0)));
@@ -97,11 +98,7 @@ class TopicEntityJpaTest {
 		topicJpaRepository.saveAndFlush(newTopic("B-1", agitB, LocalDateTime.of(2026, 8, 14, 0, 0)));
 		entityManager.clear();
 
-		assertThat(topicJpaRepository.findAllByAgitUuidAndStartAtRange(
-				agitA,
-				LocalDateTime.of(2026, 8, 1, 0, 0),
-				LocalDateTime.of(2026, 9, 1, 0, 0)
-		))
+		assertThat(topicJpaRepository.findLatestByAgitUuid(agitA, PageRequest.of(0, 10)))
 				.extracting(TopicEntity::getTitle)
 				.containsExactly("A-new", "A-mid", "A-old");
 	}

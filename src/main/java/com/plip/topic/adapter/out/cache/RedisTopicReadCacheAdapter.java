@@ -24,7 +24,7 @@ import java.util.UUID;
 public class RedisTopicReadCacheAdapter implements TopicReadCachePort {
 
 	private static final Duration TTL = Duration.ofMinutes(10);
-	private static final TypeReference<List<TopicResult>> DAY_TYPE = new TypeReference<>() {
+	private static final TypeReference<List<TopicResult>> LATEST_TYPE = new TypeReference<>() {
 	};
 	private static final TypeReference<List<LocalDate>> CALENDAR_TYPE = new TypeReference<>() {
 	};
@@ -33,13 +33,13 @@ public class RedisTopicReadCacheAdapter implements TopicReadCachePort {
 	private final ObjectMapper objectMapper;
 
 	@Override
-	public Optional<List<TopicResult>> getDayTopics(UUID agitUuid, LocalDate date) {
-		return read(dayKey(agitUuid, date), DAY_TYPE);
+	public Optional<List<TopicResult>> getLatestTopics(UUID agitUuid) {
+		return read(latestKey(agitUuid), LATEST_TYPE);
 	}
 
 	@Override
-	public void putDayTopics(UUID agitUuid, LocalDate date, List<TopicResult> topics) {
-		write(dayKey(agitUuid, date), topics);
+	public void putLatestTopics(UUID agitUuid, List<TopicResult> topics) {
+		write(latestKey(agitUuid), topics);
 	}
 
 	@Override
@@ -56,7 +56,7 @@ public class RedisTopicReadCacheAdapter implements TopicReadCachePort {
 	public void evict(UUID agitUuid, LocalDate date) {
 		try {
 			redisTemplate.delete(List.of(
-					dayKey(agitUuid, date),
+					latestKey(agitUuid),
 					calendarKey(agitUuid, YearMonth.from(date))
 			));
 		} catch (Exception exception) {
@@ -85,8 +85,8 @@ public class RedisTopicReadCacheAdapter implements TopicReadCachePort {
 		}
 	}
 
-	private static String dayKey(UUID agitUuid, LocalDate date) {
-		return "topic:day:" + agitUuid + ":" + date;
+	private static String latestKey(UUID agitUuid) {
+		return "topic:latest:" + agitUuid;
 	}
 
 	private static String calendarKey(UUID agitUuid, YearMonth yearMonth) {
