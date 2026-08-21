@@ -50,42 +50,34 @@ class TopicServiceTest {
 	private TopicService topicService;
 
 	@Test
-	void listByAgitUuidAndDate_mapsPersistedTopics() {
+	void listLatestByAgitUuid_mapsPersistedTopics() {
 		UUID agitUuid = UUID.randomUUID();
 		UUID userUuid = UUID.randomUUID();
 		UUID videoUuid = UUID.randomUUID();
-		LocalDate date = LocalDate.of(2026, 8, 14);
 		Topic topic = Topic.create(
 				agitUuid,
 				UUID.randomUUID(),
 				"주말 모임",
 				LocalDateTime.of(2026, 8, 14, 0, 0)
 		).attachVideo(userUuid, videoUuid);
-		given(topicReadCachePort.getDayTopics(agitUuid, date)).willReturn(Optional.empty());
-		given(topicPersistencePort.findAllByAgitUuidAndDate(agitUuid, date)).willReturn(List.of(topic));
+		given(topicReadCachePort.getLatestTopics(agitUuid)).willReturn(Optional.empty());
+		given(topicPersistencePort.findLatestByAgitUuid(agitUuid, 10)).willReturn(List.of(topic));
 
-		var results = topicService.listByAgitUuidAndDate(agitUuid, date);
+		var results = topicService.listLatestByAgitUuid(agitUuid);
 
 		assertThat(results).hasSize(1);
 		assertThat(results.get(0).getTitle()).isEqualTo("주말 모임");
 		assertThat(results.get(0).getAgitUuid()).isEqualTo(agitUuid);
 		assertThat(results.get(0).getVideoCount()).isEqualTo(1);
 		assertThat(results.get(0).uploadedBy(userUuid)).isTrue();
-		verify(topicReadCachePort).putDayTopics(agitUuid, date, results);
+		verify(topicReadCachePort).putLatestTopics(agitUuid, results);
 	}
 
 	@Test
-	void listByAgitUuidAndDate_requiresAgitUuid() {
-		assertThatThrownBy(() -> topicService.listByAgitUuidAndDate(null, LocalDate.of(2026, 8, 14)))
+	void listLatestByAgitUuid_requiresAgitUuid() {
+		assertThatThrownBy(() -> topicService.listLatestByAgitUuid(null))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("agitUuid는 필수입니다.");
-	}
-
-	@Test
-	void listByAgitUuidAndDate_requiresDate() {
-		assertThatThrownBy(() -> topicService.listByAgitUuidAndDate(UUID.randomUUID(), null))
-				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessage("date는 필수입니다.");
 	}
 
 	@Test

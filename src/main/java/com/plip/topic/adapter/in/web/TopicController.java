@@ -34,7 +34,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
@@ -93,17 +92,15 @@ public class TopicController {
 		deleteTopicUseCase.delete(topicUuid);
 	}
 
-	@Operation(summary = "토픽 목록 조회", description = "그날 주제 칩용. 영상 격자는 GET /{topicUuid}/videos.")
+	@Operation(summary = "토픽 목록 조회", description = "아지트의 startAt 최신 토픽 최대 10개. 영상 격자는 GET /{topicUuid}/videos.")
 	@GetMapping
 	public List<TopicResponseDto> list(
 			@Parameter(description = "아지트 UUID", required = true)
 			@RequestParam UUID agitUuid,
-			@Parameter(description = "조회 날짜 (yyyy-MM-dd)", required = true)
-			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
 			@Parameter(description = "조회 사용자 UUID. 있으면 uploadedByMe를 채운다 (임시 — 추후 인증)")
 			@RequestParam(required = false) UUID userUuid
 	) {
-		return topicWebMapper.toDtoList(listTopicsUseCase.listByAgitUuidAndDate(agitUuid, date), userUuid);
+		return topicWebMapper.toDtoList(listTopicsUseCase.listLatestByAgitUuid(agitUuid), userUuid);
 	}
 
 	@Operation(

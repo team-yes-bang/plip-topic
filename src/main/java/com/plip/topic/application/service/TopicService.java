@@ -34,6 +34,8 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopicCalendarUseCase, CreateTopicUseCase, UpdateTopicUseCase, DeleteTopicUseCase {
 
+	private static final int LATEST_LIMIT = 10;
+
 	private final TopicPersistencePort topicPersistencePort;
 	private final TopicReadCachePort topicReadCachePort;
 	private final TopicViewerSnapshotPort topicViewerSnapshotPort;
@@ -97,19 +99,16 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 	}
 
 	@Override
-	public List<TopicResult> listByAgitUuidAndDate(UUID agitUuid, LocalDate date) {
+	public List<TopicResult> listLatestByAgitUuid(UUID agitUuid) {
 		if (agitUuid == null) {
 			throw new IllegalArgumentException("agitUuid는 필수입니다.");
 		}
-		if (date == null) {
-			throw new IllegalArgumentException("date는 필수입니다.");
-		}
-		return topicReadCachePort.getDayTopics(agitUuid, date)
+		return topicReadCachePort.getLatestTopics(agitUuid)
 				.orElseGet(() -> {
-					List<TopicResult> results = topicPersistencePort.findAllByAgitUuidAndDate(agitUuid, date).stream()
+					List<TopicResult> results = topicPersistencePort.findLatestByAgitUuid(agitUuid, LATEST_LIMIT).stream()
 							.map(TopicResult::from)
 							.toList();
-					topicReadCachePort.putDayTopics(agitUuid, date, results);
+					topicReadCachePort.putLatestTopics(agitUuid, results);
 					return results;
 				});
 	}

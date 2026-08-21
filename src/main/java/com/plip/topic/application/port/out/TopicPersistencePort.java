@@ -14,7 +14,7 @@ public interface TopicPersistencePort {
 
 	Optional<Topic> findByTopicUuid(UUID topicUuid);
 
-	List<Topic> findAllByAgitUuidAndDate(UUID agitUuid, LocalDate date);
+	List<Topic> findLatestByAgitUuid(UUID agitUuid, int limit);
 
 	List<LocalDate> findActiveDates(UUID agitUuid, YearMonth yearMonth);
 

@@ -16,17 +16,17 @@ import java.util.concurrent.ConcurrentHashMap;
 @Profile("test")
 public class InMemoryTopicReadCacheAdapter implements TopicReadCachePort {
 
-	private final ConcurrentHashMap<String, List<TopicResult>> dayTopics = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, List<TopicResult>> latestTopics = new ConcurrentHashMap<>();
 	private final ConcurrentHashMap<String, List<LocalDate>> calendars = new ConcurrentHashMap<>();
 
 	@Override
-	public Optional<List<TopicResult>> getDayTopics(UUID agitUuid, LocalDate date) {
-		return Optional.ofNullable(dayTopics.get(dayKey(agitUuid, date)));
+	public Optional<List<TopicResult>> getLatestTopics(UUID agitUuid) {
+		return Optional.ofNullable(latestTopics.get(latestKey(agitUuid)));
 	}
 
 	@Override
-	public void putDayTopics(UUID agitUuid, LocalDate date, List<TopicResult> topics) {
-		dayTopics.put(dayKey(agitUuid, date), List.copyOf(topics));
+	public void putLatestTopics(UUID agitUuid, List<TopicResult> topics) {
+		latestTopics.put(latestKey(agitUuid), List.copyOf(topics));
 	}
 
 	@Override
@@ -41,12 +41,12 @@ public class InMemoryTopicReadCacheAdapter implements TopicReadCachePort {
 
 	@Override
 	public void evict(UUID agitUuid, LocalDate date) {
-		dayTopics.remove(dayKey(agitUuid, date));
+		latestTopics.remove(latestKey(agitUuid));
 		calendars.remove(calendarKey(agitUuid, YearMonth.from(date)));
 	}
 
-	private static String dayKey(UUID agitUuid, LocalDate date) {
-		return "topic:day:" + agitUuid + ":" + date;
+	private static String latestKey(UUID agitUuid) {
+		return "topic:latest:" + agitUuid;
 	}
 
 	private static String calendarKey(UUID agitUuid, YearMonth yearMonth) {

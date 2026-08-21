@@ -8,6 +8,7 @@ import com.plip.topic.adapter.out.persistence.repository.TopicJpaRepository;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.domain.model.Topic;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,10 +43,8 @@ public class TopicPersistenceAdapter implements TopicPersistencePort {
 	}
 
 	@Override
-	public List<Topic> findAllByAgitUuidAndDate(UUID agitUuid, LocalDate date) {
-		LocalDateTime from = date.atStartOfDay();
-		LocalDateTime to = date.plusDays(1).atStartOfDay();
-		return topicJpaRepository.findAllByAgitUuidAndStartAtRange(agitUuid, from, to)
+	public List<Topic> findLatestByAgitUuid(UUID agitUuid, int limit) {
+		return topicJpaRepository.findLatestByAgitUuid(agitUuid, PageRequest.of(0, limit))
 				.stream()
 				.map(topicPersistenceMapper::toDomain)
 				.toList();

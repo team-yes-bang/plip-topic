@@ -10,9 +10,9 @@ import java.util.UUID;
 
 public interface TopicReadCachePort {
 
-	Optional<List<TopicResult>> getDayTopics(UUID agitUuid, LocalDate date);
+	Optional<List<TopicResult>> getLatestTopics(UUID agitUuid);
 
-	void putDayTopics(UUID agitUuid, LocalDate date, List<TopicResult> topics);
+	void putLatestTopics(UUID agitUuid, List<TopicResult> topics);
 
 	Optional<List<LocalDate>> getCalendar(UUID agitUuid, YearMonth yearMonth);
 
