@@ -15,8 +15,8 @@ spring:
     redis:
       host: ${REDIS_HOST:redis}
       port: ${REDIS_PORT:6379}
-    mongodb:
-      uri: ${SPRING_DATA_MONGODB_URI:mongodb://mongo:27017/plip_topic}
+  mongodb:
+    uri: ${SPRING_MONGODB_URI:${SPRING_DATA_MONGODB_URI:mongodb://mongo:27017/plip_topic}}
 
 eureka:
   instance:
