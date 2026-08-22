@@ -30,7 +30,7 @@ public class TopicResponseDto {
 	@Schema(description = "붙은 영상 수")
 	private int videoCount;
 
-	@Schema(description = "조회한 사용자가 이 토픽에 영상을 올렸는지. actor 헤더가 없으면 null")
+	@Schema(description = "조회한 사용자가 이 토픽에 영상을 올렸는지. Access JWT가 없으면 null")
 	private Boolean uploadedByMe;
 
 	@Schema(description = "생성 시각")

@@ -7,6 +7,7 @@ import com.plip.topic.adapter.in.web.dto.TopicResponseDto;
 import com.plip.topic.adapter.in.web.dto.TopicVideoResponseDto;
 import com.plip.topic.adapter.in.web.dto.UpdateTopicRequest;
 import com.plip.topic.adapter.in.web.mapper.TopicWebMapper;
+import com.plip.topic.application.exception.UnauthenticatedActorException;
 import com.plip.topic.application.port.in.AttachTopicVideoUseCase;
 import com.plip.topic.application.port.in.CreateTopicUseCase;
 import com.plip.topic.application.port.in.DeleteTopicUseCase;
@@ -58,16 +59,16 @@ public class TopicController {
 	private final DetachTopicVideoUseCase detachTopicVideoUseCase;
 	private final TopicWebMapper topicWebMapper;
 
-	@Operation(summary = "토픽 생성", description = "아지트에 주제를 만듭니다. 생성자는 X-User-UUID이며 ACTIVE 멤버만 가능합니다. 영상은 붙이지 않습니다.")
+	@Operation(summary = "토픽 생성", description = "아지트에 주제를 만듭니다. 생성자는 Access JWT이며 ACTIVE 멤버만 가능합니다. 영상은 붙이지 않습니다.")
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public TopicResponseDto create(@RequestBody CreateTopicRequest request, HttpServletRequest httpRequest) {
-		UUID actorUuid = RequestActor.requireUserUuid(httpRequest);
+		UUID actorUuid = AuthenticatedActor.requireUserUuid();
 		return topicWebMapper.toDto(
 				createTopicUseCase.create(
 						topicWebMapper.toDto(request),
 						actorUuid,
-						RequestActor.requireAuthorization(httpRequest)
+						requireAuthorization(httpRequest)
 				),
 				actorUuid
 		);
@@ -86,19 +87,18 @@ public class TopicController {
 			@Parameter(description = "KST 날짜 구간. ONGOING=오늘, UPCOMING=이후, PAST=이전", required = true)
 			@RequestParam TopicListStatus status,
 			@Parameter(description = "최대 개수. 생략 시 10, 1~20으로 제한")
-			@RequestParam(required = false) Integer limit,
-			HttpServletRequest httpRequest
+			@RequestParam(required = false) Integer limit
 	) {
 		return topicWebMapper.toDtoList(
 				listTopicsUseCase.listByAgitUuidAndStatus(agitUuid, status, limit),
-				RequestActor.findUserUuid(httpRequest)
+				AuthenticatedActor.findUserUuid()
 		);
 	}
 
 	@Operation(summary = "토픽 단건 조회")
 	@GetMapping("/{topicUuid}")
-	public TopicResponseDto get(@PathVariable UUID topicUuid, HttpServletRequest httpRequest) {
-		return topicWebMapper.toDto(getTopicUseCase.get(topicUuid), RequestActor.findUserUuid(httpRequest));
+	public TopicResponseDto get(@PathVariable UUID topicUuid) {
+		return topicWebMapper.toDto(getTopicUseCase.get(topicUuid), AuthenticatedActor.findUserUuid());
 	}
 
 	@Operation(summary = "토픽 수정", description = "제목 또는 진행일. 전달하지 않은 필드는 유지됩니다. 생성자 또는 HOST만 가능합니다.")
@@ -109,13 +109,13 @@ public class TopicController {
 			@RequestBody UpdateTopicRequest request,
 			HttpServletRequest httpRequest
 	) {
-		UUID actorUuid = RequestActor.requireUserUuid(httpRequest);
+		UUID actorUuid = AuthenticatedActor.requireUserUuid();
 		return topicWebMapper.toDto(
 				updateTopicUseCase.update(
 						topicUuid,
 						topicWebMapper.toDto(request),
 						actorUuid,
-						httpRequest.getHeader(HttpHeaders.AUTHORIZATION)
+						requireAuthorization(httpRequest)
 				),
 				actorUuid
 		);
@@ -131,8 +131,8 @@ public class TopicController {
 	) {
 		deleteTopicUseCase.delete(
 				topicUuid,
-				RequestActor.requireUserUuid(httpRequest),
-				httpRequest.getHeader(HttpHeaders.AUTHORIZATION)
+				AuthenticatedActor.requireUserUuid(),
+				requireAuthorization(httpRequest)
 		);
 	}
 
@@ -140,12 +140,11 @@ public class TopicController {
 	@GetMapping
 	public List<TopicResponseDto> list(
 			@Parameter(description = "아지트 UUID", required = true)
-			@RequestParam UUID agitUuid,
-			HttpServletRequest httpRequest
+			@RequestParam UUID agitUuid
 	) {
 		return topicWebMapper.toDtoList(
 				listTopicsUseCase.listLatestByAgitUuid(agitUuid),
-				RequestActor.findUserUuid(httpRequest)
+				AuthenticatedActor.findUserUuid()
 		);
 	}
 
@@ -178,8 +177,8 @@ public class TopicController {
 			@RequestBody AttachTopicVideoRequest request,
 			HttpServletRequest httpRequest
 	) {
-		UUID actorUuid = RequestActor.requireUserUuid(httpRequest);
-		String authorization = RequestActor.requireAuthorization(httpRequest);
+		UUID actorUuid = AuthenticatedActor.requireUserUuid();
+		String authorization = requireAuthorization(httpRequest);
 		boolean created = attachTopicVideoUseCase.attachOrThrow(
 				topicUuid,
 				request.getVideoUuid(),
@@ -202,9 +201,16 @@ public class TopicController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void detachVideo(
 			@PathVariable UUID topicUuid,
-			@PathVariable UUID videoUuid,
-			HttpServletRequest httpRequest
+			@PathVariable UUID videoUuid
 	) {
-		detachTopicVideoUseCase.detach(topicUuid, videoUuid, RequestActor.requireUserUuid(httpRequest));
+		detachTopicVideoUseCase.detach(topicUuid, videoUuid, AuthenticatedActor.requireUserUuid());
+	}
+
+	private static String requireAuthorization(HttpServletRequest httpRequest) {
+		String authorization = httpRequest.getHeader(HttpHeaders.AUTHORIZATION);
+		if (authorization == null || authorization.isBlank()) {
+			throw new UnauthenticatedActorException();
+		}
+		return authorization;
 	}
 }

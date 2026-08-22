@@ -34,5 +34,6 @@ services:
       EUREKA_INSTANCE_HOSTNAME: topic
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
       AGIT_GATEWAY_BASE_URL: ${AGIT_GATEWAY_BASE_URL:-http://gateway:8000}
+      JWT_SECRET: ${JWT_SECRET:-}
     networks:
       - plip-net
