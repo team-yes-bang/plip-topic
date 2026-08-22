@@ -1,9 +1,12 @@
 package com.plip.topic.application.service;
 
+import com.plip.topic.application.exception.ForbiddenActorException;
+import com.plip.topic.application.exception.UnauthenticatedActorException;
 import com.plip.topic.application.port.in.AttachTopicVideoUseCase;
 import com.plip.topic.application.port.in.DetachTopicVideoUseCase;
 import com.plip.topic.application.port.in.ListTopicVideosUseCase;
 import com.plip.topic.application.port.in.dto.TopicVideoResult;
+import com.plip.topic.application.port.out.AgitMembershipPort;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
 import com.plip.topic.application.port.out.TopicVideoEventPort;
@@ -30,6 +33,7 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 	private final TopicReadCachePort topicReadCachePort;
 	private final TopicViewerSnapshotPort topicViewerSnapshotPort;
 	private final TopicVideoEventPort topicVideoEventPort;
+	private final AgitMembershipPort agitMembershipPort;
 
 	@Override
 	@Transactional
@@ -53,24 +57,29 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 
 	@Override
 	@Transactional
-	public boolean attachOrThrow(UUID topicUuid, UUID videoUuid, UUID userUuid) {
+	public boolean attachOrThrow(UUID topicUuid, UUID videoUuid, UUID actorUuid, String authorization) {
 		if (topicUuid == null) {
 			throw new IllegalArgumentException("topicUuid는 필수입니다.");
 		}
 		if (videoUuid == null) {
 			throw new IllegalArgumentException("videoUuid는 필수입니다.");
 		}
-		if (userUuid == null) {
-			throw new IllegalArgumentException("userUuid는 필수입니다.");
+		if (actorUuid == null) {
+			throw new UnauthenticatedActorException();
+		}
+		if (authorization == null || authorization.isBlank()) {
+			throw new UnauthenticatedActorException();
 		}
 		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
-		boolean attached = topicPersistencePort.addVideoIfAbsent(topicUuid, videoUuid, userUuid);
+		agitMembershipPort.findActiveMember(topic.getAgitUuid(), authorization)
+				.orElseThrow(ForbiddenActorException::new);
+		boolean attached = topicPersistencePort.addVideoIfAbsent(topicUuid, videoUuid, actorUuid);
 		if (attached) {
 			topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
 			Topic projected = topicPersistencePort.findByTopicUuid(topicUuid).orElse(topic);
 			saveSnapshotAfterCommit(projected);
-			publishAttachedAfterCommit(topic, videoUuid, userUuid);
+			publishAttachedAfterCommit(topic, videoUuid, actorUuid);
 		}
 		return attached;
 	}
@@ -78,6 +87,9 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 	@Override
 	@Transactional
 	public void detach(UUID topicUuid, UUID videoUuid, UUID userUuid) {
+		if (userUuid == null) {
+			throw new UnauthenticatedActorException();
+		}
 		if (topicUuid == null) {
 			throw new IllegalArgumentException("topicUuid는 필수입니다.");
 		}

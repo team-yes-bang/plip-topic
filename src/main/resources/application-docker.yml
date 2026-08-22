@@ -27,3 +27,7 @@ eureka:
     enabled: true
     service-url:
       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://eureka-server:8761/eureka/}
+
+app:
+  agit:
+    gateway-base-url: ${AGIT_GATEWAY_BASE_URL:http://gateway:8000}

@@ -21,7 +21,6 @@ public class TopicWebMapper {
 	public CreateTopicRequestDto toDto(CreateTopicRequest request) {
 		return CreateTopicRequestDto.builder()
 				.agitUuid(request.getAgitUuid())
-				.creatorUuid(request.getCreatorUuid())
 				.title(request.getTitle())
 				.startAt(request.getStartAt())
 				.build();
