@@ -16,6 +16,7 @@ import com.plip.topic.application.port.in.GetTopicUseCase;
 import com.plip.topic.application.port.in.ListTopicVideosUseCase;
 import com.plip.topic.application.port.in.ListTopicsUseCase;
 import com.plip.topic.application.port.in.UpdateTopicUseCase;
+import com.plip.topic.domain.model.TopicListStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -60,6 +61,24 @@ public class TopicController {
 	@ResponseStatus(HttpStatus.CREATED)
 	public TopicResponseDto create(@RequestBody CreateTopicRequest request) {
 		return topicWebMapper.toDto(createTopicUseCase.create(topicWebMapper.toDto(request)), null);
+	}
+
+	// TODO: GET /api/v1/topics/feed — 피드형 목록. cursor 페이지는 이 엔드포인트에서 도입.
+	// videoCount == 0 은 feed에서 제외. list는 0개여도 포함.
+	@Operation(
+			summary = "토픽 구간 목록 조회",
+			description = "아지트의 토픽을 KST 날짜 기준 ONGOING/UPCOMING/PAST로 조회합니다. 최신 10개 갤러리는 GET /topics."
+	)
+	@GetMapping("/list")
+	public List<TopicResponseDto> listByStatus(
+			@Parameter(description = "아지트 UUID", required = true)
+			@RequestParam UUID agitUuid,
+			@Parameter(description = "KST 날짜 구간. ONGOING=오늘, UPCOMING=이후, PAST=이전", required = true)
+			@RequestParam TopicListStatus status,
+			@Parameter(description = "최대 개수. 생략 시 10, 1~20으로 제한")
+			@RequestParam(required = false) Integer limit
+	) {
+		return topicWebMapper.toDtoList(listTopicsUseCase.listByAgitUuidAndStatus(agitUuid, status, limit), null);
 	}
 
 	@Operation(summary = "토픽 단건 조회")
