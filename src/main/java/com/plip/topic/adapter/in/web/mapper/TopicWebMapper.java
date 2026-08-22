@@ -2,11 +2,13 @@ package com.plip.topic.adapter.in.web.mapper;
 
 import com.plip.topic.adapter.in.web.dto.CreateTopicRequest;
 import com.plip.topic.adapter.in.web.dto.TopicCalendarResponse;
+import com.plip.topic.adapter.in.web.dto.TopicFeedResponseDto;
 import com.plip.topic.adapter.in.web.dto.TopicResponseDto;
 import com.plip.topic.adapter.in.web.dto.TopicVideoResponseDto;
 import com.plip.topic.adapter.in.web.dto.UpdateTopicRequest;
 import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
 import com.plip.topic.application.port.in.dto.TopicCalendarResult;
+import com.plip.topic.application.port.in.dto.TopicFeedResult;
 import com.plip.topic.application.port.in.dto.TopicResult;
 import com.plip.topic.application.port.in.dto.TopicVideoResult;
 import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
@@ -48,6 +50,14 @@ public class TopicWebMapper {
 
 	public List<TopicResponseDto> toDtoList(List<TopicResult> results, UUID viewerUuid) {
 		return results.stream().map(result -> toDto(result, viewerUuid)).toList();
+	}
+
+	public TopicFeedResponseDto toFeedDto(TopicFeedResult result, UUID viewerUuid) {
+		return TopicFeedResponseDto.builder()
+				.current(result.getCurrent() == null ? null : toDto(result.getCurrent(), viewerUuid))
+				.before(toDtoList(result.getBefore(), viewerUuid))
+				.after(toDtoList(result.getAfter(), viewerUuid))
+				.build();
 	}
 
 	public TopicVideoResponseDto toVideoDto(TopicVideoResult result) {

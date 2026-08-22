@@ -19,6 +19,16 @@ public interface TopicPersistencePort {
 
 	List<Topic> findByAgitUuidAndListStatus(UUID agitUuid, TopicListStatus status, LocalDate today, int limit);
 
+	List<Topic> findFeedOngoingWithVideos(UUID agitUuid, LocalDate today);
+
+	List<Topic> findFeedPastFromStart(UUID agitUuid, LocalDate today, int limit);
+
+	List<Topic> findFeedPastOlderThan(UUID agitUuid, LocalDate today, Topic current, int limit);
+
+	List<Topic> findFeedPastNewerThan(UUID agitUuid, LocalDate today, Topic current, int limit);
+
+	Optional<Topic> findFeedAnchorOnDate(UUID agitUuid, LocalDate today, LocalDate date);
+
 	List<LocalDate> findActiveDates(UUID agitUuid, YearMonth yearMonth);
 
 	Topic update(Topic topic);

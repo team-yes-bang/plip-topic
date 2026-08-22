@@ -231,6 +231,58 @@ class TopicControllerTest {
 	}
 
 	@Test
+	void feed_returnsNeighborsAndKeepsListContract() throws Exception {
+		UUID agitUuid = UUID.randomUUID();
+		UUID creatorUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		Topic todayFirst = topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "오늘-1", today.atTime(8, 0)));
+		Topic todaySecond = topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "오늘-2", today.atTime(12, 0)));
+		Topic yesterday = topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "어제", today.minusDays(1).atStartOfDay()));
+		topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "오늘-빈", today.atTime(9, 0)));
+		Topic upcoming = topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "내일", today.plusDays(1).atStartOfDay()));
+		topicPersistencePort.addVideoIfAbsent(todayFirst.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+		topicPersistencePort.addVideoIfAbsent(todaySecond.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+		topicPersistencePort.addVideoIfAbsent(yesterday.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+		topicPersistencePort.addVideoIfAbsent(upcoming.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+
+		mockMvc.perform(get("/api/v1/topics/feed")
+						.param("agitUuid", agitUuid.toString())
+						.param("topicUuid", todaySecond.getTopicUuid().toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.current.title").value("오늘-2"))
+				.andExpect(jsonPath("$.before.length()").value(1))
+				.andExpect(jsonPath("$.before[0].title").value("오늘-1"))
+				.andExpect(jsonPath("$.after.length()").value(1))
+				.andExpect(jsonPath("$.after[0].title").value("어제"));
+
+		mockMvc.perform(get("/api/v1/topics/feed")
+						.param("agitUuid", agitUuid.toString())
+						.param("date", today.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.current.title").value("오늘-1"))
+				.andExpect(jsonPath("$.after[0].title").value("오늘-2"));
+
+		mockMvc.perform(get("/api/v1/topics/list")
+						.param("agitUuid", agitUuid.toString())
+						.param("status", "ONGOING"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(3));
+	}
+
+	@Test
+	void feed_requiresExactlyOneAnchor() throws Exception {
+		UUID agitUuid = UUID.randomUUID();
+		mockMvc.perform(get("/api/v1/topics/feed")
+						.param("agitUuid", agitUuid.toString()))
+				.andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/v1/topics/feed")
+						.param("agitUuid", agitUuid.toString())
+						.param("topicUuid", UUID.randomUUID().toString())
+						.param("date", LocalDate.now(ZoneId.of("Asia/Seoul")).toString()))
+				.andExpect(status().isBadRequest());
+	}
+
+	@Test
 	void get_returnsSingleTopic() throws Exception {
 		Topic saved = topicPersistencePort.save(Topic.create(
 				UUID.randomUUID(),
