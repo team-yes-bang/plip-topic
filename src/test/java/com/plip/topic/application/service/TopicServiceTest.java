@@ -8,6 +8,7 @@ import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
 import com.plip.topic.application.port.out.TopicViewerSnapshotPort;
 import com.plip.topic.domain.model.Topic;
+import com.plip.topic.domain.model.TopicListStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -17,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -78,6 +80,56 @@ class TopicServiceTest {
 		assertThatThrownBy(() -> topicService.listLatestByAgitUuid(null))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("agitUuid는 필수입니다.");
+	}
+
+	@Test
+	void listByAgitUuidAndStatus_queriesPersistenceWithKstTodayAndClampedLimit() {
+		UUID agitUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		Topic topic = Topic.create(agitUuid, UUID.randomUUID(), "오늘", today.atStartOfDay());
+		given(topicPersistencePort.findByAgitUuidAndListStatus(agitUuid, TopicListStatus.ONGOING, today, 10))
+				.willReturn(List.of(topic));
+
+		var results = topicService.listByAgitUuidAndStatus(agitUuid, TopicListStatus.ONGOING, null);
+
+		assertThat(results).hasSize(1);
+		assertThat(results.get(0).getTitle()).isEqualTo("오늘");
+		verify(topicReadCachePort, never()).getLatestTopics(any());
+		verify(topicPersistencePort).findByAgitUuidAndListStatus(agitUuid, TopicListStatus.ONGOING, today, 10);
+	}
+
+	@Test
+	void listByAgitUuidAndStatus_clampsLimitToTwenty() {
+		UUID agitUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		given(topicPersistencePort.findByAgitUuidAndListStatus(agitUuid, TopicListStatus.PAST, today, 20))
+				.willReturn(List.of());
+
+		topicService.listByAgitUuidAndStatus(agitUuid, TopicListStatus.PAST, 21);
+
+		verify(topicPersistencePort).findByAgitUuidAndListStatus(agitUuid, TopicListStatus.PAST, today, 20);
+	}
+
+	@Test
+	void listByAgitUuidAndStatus_honorsLimitFive() {
+		UUID agitUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		given(topicPersistencePort.findByAgitUuidAndListStatus(agitUuid, TopicListStatus.UPCOMING, today, 5))
+				.willReturn(List.of());
+
+		topicService.listByAgitUuidAndStatus(agitUuid, TopicListStatus.UPCOMING, 5);
+
+		verify(topicPersistencePort).findByAgitUuidAndListStatus(agitUuid, TopicListStatus.UPCOMING, today, 5);
+	}
+
+	@Test
+	void listByAgitUuidAndStatus_requiresAgitUuidAndStatus() {
+		assertThatThrownBy(() -> topicService.listByAgitUuidAndStatus(null, TopicListStatus.ONGOING, 10))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("agitUuid는 필수입니다.");
+		assertThatThrownBy(() -> topicService.listByAgitUuidAndStatus(UUID.randomUUID(), null, 10))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("status는 필수입니다.");
 	}
 
 	@Test

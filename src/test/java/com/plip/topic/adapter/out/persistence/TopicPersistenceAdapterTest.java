@@ -2,6 +2,7 @@ package com.plip.topic.adapter.out.persistence;
 
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.domain.model.Topic;
+import com.plip.topic.domain.model.TopicListStatus;
 import com.plip.topic.domain.model.TopicVideoLimitException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,7 +10,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -87,6 +90,53 @@ class TopicPersistenceAdapterTest {
 		assertThatThrownBy(() -> topicPersistencePort.deleteByTopicUuid(UUID.randomUUID()))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("토픽이 존재하지 않습니다.");
+	}
+
+	@Test
+	void findByAgitUuidAndListStatus_classifiesByDateExcludesDeletedAndIncludesEmpty() {
+		UUID agitUuid = UUID.randomUUID();
+		UUID creatorUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "어제", today.minusDays(1).atTime(18, 0)));
+		topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "그저께", today.minusDays(2).atStartOfDay()));
+		topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "오늘-빈", today.atStartOfDay()));
+		Topic todayWithVideo = topicPersistencePort.save(
+				Topic.create(agitUuid, creatorUuid, "오늘-영상", today.atTime(12, 0)));
+		topicPersistencePort.addVideoIfAbsent(todayWithVideo.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+		topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "내일", today.plusDays(1).atStartOfDay()));
+		topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "모레", today.plusDays(2).atStartOfDay()));
+		Topic deleted = topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "삭제", today.atStartOfDay()));
+		topicPersistencePort.deleteByTopicUuid(deleted.getTopicUuid());
+		topicPersistencePort.save(Topic.create(UUID.randomUUID(), creatorUuid, "다른아지트", today.atStartOfDay()));
+
+		List<Topic> ongoing = topicPersistencePort.findByAgitUuidAndListStatus(
+				agitUuid, TopicListStatus.ONGOING, today, 10);
+		List<Topic> upcoming = topicPersistencePort.findByAgitUuidAndListStatus(
+				agitUuid, TopicListStatus.UPCOMING, today, 10);
+		List<Topic> past = topicPersistencePort.findByAgitUuidAndListStatus(
+				agitUuid, TopicListStatus.PAST, today, 10);
+
+		assertThat(ongoing).extracting(Topic::getTitle).containsExactly("오늘-빈", "오늘-영상");
+		assertThat(ongoing.get(0).videoCount()).isZero();
+		assertThat(upcoming).extracting(Topic::getTitle).containsExactly("내일", "모레");
+		assertThat(past).extracting(Topic::getTitle).containsExactly("어제", "그저께");
+		assertThat(ongoing).extracting(Topic::getTitle).doesNotContain("삭제", "다른아지트");
+	}
+
+	@Test
+	void findByAgitUuidAndListStatus_capsAtLimit() {
+		UUID agitUuid = UUID.randomUUID();
+		UUID creatorUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		for (int i = 1; i <= 6; i++) {
+			topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "u-" + i, today.plusDays(i).atStartOfDay()));
+		}
+
+		List<Topic> found = topicPersistencePort.findByAgitUuidAndListStatus(
+				agitUuid, TopicListStatus.UPCOMING, today, 5);
+
+		assertThat(found).hasSize(5);
+		assertThat(found).extracting(Topic::getTitle).containsExactly("u-1", "u-2", "u-3", "u-4", "u-5");
 	}
 
 	@Test

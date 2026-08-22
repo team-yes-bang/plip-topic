@@ -10,7 +10,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -86,6 +88,120 @@ class TopicControllerTest {
 	void list_requiresAgitUuid() throws Exception {
 		mockMvc.perform(get("/api/v1/topics"))
 				.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void listByStatus_classifiesByKstDateAndKeepsLatestListUnchanged() throws Exception {
+		UUID agitUuid = UUID.randomUUID();
+		UUID creatorUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "어제", today.minusDays(1).atStartOfDay()));
+		topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "오늘", today.atTime(23, 0)));
+		topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "내일", today.plusDays(1).atStartOfDay()));
+
+		mockMvc.perform(get("/api/v1/topics/list")
+						.param("agitUuid", agitUuid.toString())
+						.param("status", "ONGOING"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(1))
+				.andExpect(jsonPath("$[0].title").value("오늘"))
+				.andExpect(jsonPath("$[0].uploadedByMe").doesNotExist());
+
+		mockMvc.perform(get("/api/v1/topics/list")
+						.param("agitUuid", agitUuid.toString())
+						.param("status", "UPCOMING"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(1))
+				.andExpect(jsonPath("$[0].title").value("내일"));
+
+		mockMvc.perform(get("/api/v1/topics/list")
+						.param("agitUuid", agitUuid.toString())
+						.param("status", "PAST"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(1))
+				.andExpect(jsonPath("$[0].title").value("어제"));
+
+		mockMvc.perform(get("/api/v1/topics")
+						.param("agitUuid", agitUuid.toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(3))
+				.andExpect(jsonPath("$[0].title").value("내일"))
+				.andExpect(jsonPath("$[1].title").value("오늘"))
+				.andExpect(jsonPath("$[2].title").value("어제"));
+	}
+
+	@Test
+	void listByStatus_requiresStatus() throws Exception {
+		mockMvc.perform(get("/api/v1/topics/list")
+						.param("agitUuid", UUID.randomUUID().toString()))
+				.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void listByStatus_requiresAgitUuid() throws Exception {
+		mockMvc.perform(get("/api/v1/topics/list")
+						.param("status", "ONGOING"))
+				.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void listByStatus_rejectsUnknownStatus() throws Exception {
+		mockMvc.perform(get("/api/v1/topics/list")
+						.param("agitUuid", UUID.randomUUID().toString())
+						.param("status", "ALL"))
+				.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void listByStatus_defaultsLimitToTenAndClampsToTwenty() throws Exception {
+		UUID agitUuid = UUID.randomUUID();
+		UUID creatorUuid = UUID.randomUUID();
+		LocalDateTime todayStart = LocalDate.now(ZoneId.of("Asia/Seoul")).atStartOfDay();
+		for (int i = 1; i <= 21; i++) {
+			topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "today-" + i, todayStart.plusMinutes(i)));
+		}
+
+		mockMvc.perform(get("/api/v1/topics/list")
+						.param("agitUuid", agitUuid.toString())
+						.param("status", "ONGOING"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(10));
+
+		mockMvc.perform(get("/api/v1/topics/list")
+						.param("agitUuid", agitUuid.toString())
+						.param("status", "ONGOING")
+						.param("limit", "21"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(20));
+
+		mockMvc.perform(get("/api/v1/topics/list")
+						.param("agitUuid", agitUuid.toString())
+						.param("status", "ONGOING")
+						.param("limit", "5"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(5));
+	}
+
+	@Test
+	void listByStatus_excludesDeletedAndIncludesZeroVideos() throws Exception {
+		UUID agitUuid = UUID.randomUUID();
+		UUID creatorUuid = UUID.randomUUID();
+		LocalDateTime todayStart = LocalDate.now(ZoneId.of("Asia/Seoul")).atStartOfDay();
+		topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "빈 토픽", todayStart));
+		Topic withVideo = topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "영상 토픽", todayStart.plusHours(1)));
+		topicPersistencePort.addVideoIfAbsent(withVideo.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+		Topic deleted = topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "삭제", todayStart.plusHours(2)));
+		topicPersistencePort.deleteByTopicUuid(deleted.getTopicUuid());
+
+		mockMvc.perform(get("/api/v1/topics/list")
+						.param("agitUuid", agitUuid.toString())
+						.param("status", "ONGOING"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(2))
+				.andExpect(jsonPath("$[0].title").value("빈 토픽"))
+				.andExpect(jsonPath("$[0].videoCount").value(0))
+				.andExpect(jsonPath("$[1].title").value("영상 토픽"))
+				.andExpect(jsonPath("$[1].videoCount").value(1));
 	}
 
 	@Test
