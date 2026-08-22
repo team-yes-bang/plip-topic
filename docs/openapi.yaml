@@ -3,11 +3,11 @@ info:
   title: Topic Service API
   description: 아지트 토픽 API
   version: v1.0.0
-security:
-- bearerAuth: []
 servers:
 - url: http://localhost
   description: Generated server url
+security:
+- bearerAuth: []
 tags:
 - name: Topic
   description: 토픽(주제) API. 영상 격자는 /videos 하위 리소스.
@@ -37,16 +37,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "401":
-          description: Unauthorized
-          content:
-            '*/*':
-              schema:
-                type: object
-                additionalProperties:
-                  type: string
-        "503":
-          description: Service Unavailable
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -61,8 +53,16 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "503":
+          description: Service Unavailable
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "401":
+          description: Unauthorized
           content:
             '*/*':
               schema:
@@ -98,16 +98,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "401":
-          description: Unauthorized
-          content:
-            '*/*':
-              schema:
-                type: object
-                additionalProperties:
-                  type: string
-        "503":
-          description: Service Unavailable
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -122,8 +114,16 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "503":
+          description: Service Unavailable
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "401":
+          description: Unauthorized
           content:
             '*/*':
               schema:
@@ -159,16 +159,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "401":
-          description: Unauthorized
-          content:
-            '*/*':
-              schema:
-                type: object
-                additionalProperties:
-                  type: string
-        "503":
-          description: Service Unavailable
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -183,8 +175,16 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "503":
+          description: Service Unavailable
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "401":
+          description: Unauthorized
           content:
             '*/*':
               schema:
@@ -227,16 +227,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "401":
-          description: Unauthorized
-          content:
-            '*/*':
-              schema:
-                type: object
-                additionalProperties:
-                  type: string
-        "503":
-          description: Service Unavailable
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -251,8 +243,16 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "503":
+          description: Service Unavailable
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "401":
+          description: Unauthorized
           content:
             '*/*':
               schema:
@@ -287,16 +287,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "401":
-          description: Unauthorized
-          content:
-            '*/*':
-              schema:
-                type: object
-                additionalProperties:
-                  type: string
-        "503":
-          description: Service Unavailable
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -311,8 +303,16 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "503":
+          description: Service Unavailable
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "401":
+          description: Unauthorized
           content:
             '*/*':
               schema:
@@ -348,16 +348,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "401":
-          description: Unauthorized
-          content:
-            '*/*':
-              schema:
-                type: object
-                additionalProperties:
-                  type: string
-        "503":
-          description: Service Unavailable
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -372,8 +364,16 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "503":
+          description: Service Unavailable
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "401":
+          description: Unauthorized
           content:
             '*/*':
               schema:
@@ -411,16 +411,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "401":
-          description: Unauthorized
-          content:
-            '*/*':
-              schema:
-                type: object
-                additionalProperties:
-                  type: string
-        "503":
-          description: Service Unavailable
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -435,8 +427,16 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "503":
+          description: Service Unavailable
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "401":
+          description: Unauthorized
           content:
             '*/*':
               schema:
@@ -491,16 +491,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "401":
-          description: Unauthorized
-          content:
-            '*/*':
-              schema:
-                type: object
-                additionalProperties:
-                  type: string
-        "503":
-          description: Service Unavailable
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -515,8 +507,16 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "503":
+          description: Service Unavailable
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "401":
+          description: Unauthorized
           content:
             '*/*':
               schema:
@@ -531,6 +531,97 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/TopicResponseDto"
+  /api/v1/topics/feed:
+    get:
+      tags:
+      - Topic
+      summary: 토픽 뷰어 이웃 조회
+      description: "영상 있는 토픽만, 오늘 다음 지난 순서. topicUuid 또는 date 중 하나만. before/after\
+        \ 기본 1 최대 3."
+      operationId: feed
+      parameters:
+      - name: agitUuid
+        in: query
+        description: 아지트 UUID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: topicUuid
+        in: query
+        description: 기준 토픽 UUID. date와 함께 쓸 수 없음
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: date
+        in: query
+        description: 기준 날짜(KST yyyy-MM-dd). topicUuid와 함께 쓸 수 없음
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: before
+        in: query
+        description: "앞쪽 개수. 생략 시 1, 0~3"
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: after
+        in: query
+        description: "뒤쪽 개수. 생략 시 1, 0~3"
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "403":
+          description: Forbidden
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "400":
+          description: Bad Request
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "409":
+          description: Conflict
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "503":
+          description: Service Unavailable
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "401":
+          description: Unauthorized
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TopicFeedResponseDto"
   /api/v1/topics/calendar:
     get:
       tags:
@@ -562,16 +653,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "401":
-          description: Unauthorized
-          content:
-            '*/*':
-              schema:
-                type: object
-                additionalProperties:
-                  type: string
-        "503":
-          description: Service Unavailable
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -586,8 +669,16 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "503":
+          description: Service Unavailable
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "401":
+          description: Unauthorized
           content:
             '*/*':
               schema:
@@ -629,16 +720,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "401":
-          description: Unauthorized
-          content:
-            '*/*':
-              schema:
-                type: object
-                additionalProperties:
-                  type: string
-        "503":
-          description: Service Unavailable
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -653,8 +736,16 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "503":
+          description: Service Unavailable
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "401":
+          description: Unauthorized
           content:
             '*/*':
               schema:
@@ -755,6 +846,23 @@ components:
           type: string
           format: date-time
           description: 진행 날짜
+    TopicFeedResponseDto:
+      type: object
+      description: "토픽 뷰어 이웃. 영상 있는 토픽만, 오늘 다음 지난 순서. before/after는 현재에 가까운 순."
+      properties:
+        current:
+          $ref: "#/components/schemas/TopicResponseDto"
+          description: 기준 토픽. 피드에 없으면 null
+        before:
+          type: array
+          description: 순서상 앞(오늘 쪽). 가장 가까운 항목이 먼저
+          items:
+            $ref: "#/components/schemas/TopicResponseDto"
+        after:
+          type: array
+          description: 순서상 뒤(지난 쪽). 가장 가까운 항목이 먼저
+          items:
+            $ref: "#/components/schemas/TopicResponseDto"
     TopicCalendarResponse:
       type: object
       description: 토픽 캘린더. 영상이 있는 날짜만 활성이다. 아지트 제목/멤버는 아지트 서비스 스냅샷이며 이 응답에 포함하지 않는다.
