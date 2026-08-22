@@ -7,5 +7,5 @@ import java.util.UUID;
 
 public interface UpdateTopicUseCase {
 
-	TopicResult update(UUID topicUuid, UpdateTopicRequestDto request);
+	TopicResult update(UUID topicUuid, UpdateTopicRequestDto request, UUID actorUuid, String authorization);
 }

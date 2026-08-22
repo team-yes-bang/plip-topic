@@ -1,5 +1,7 @@
 package com.plip.topic.application.service;
 
+import com.plip.topic.application.exception.ForbiddenActorException;
+import com.plip.topic.application.exception.UnauthenticatedActorException;
 import com.plip.topic.application.port.in.CreateTopicUseCase;
 import com.plip.topic.application.port.in.DeleteTopicUseCase;
 import com.plip.topic.application.port.in.GetTopicCalendarUseCase;
@@ -10,6 +12,8 @@ import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
 import com.plip.topic.application.port.in.dto.TopicCalendarResult;
 import com.plip.topic.application.port.in.dto.TopicResult;
 import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
+import com.plip.topic.application.port.out.AgitMembership;
+import com.plip.topic.application.port.out.AgitMembershipPort;
 import com.plip.topic.application.port.out.TopicAgitSyncEventPort;
 import com.plip.topic.application.port.out.TopicCreatedEventPort;
 import com.plip.topic.application.port.out.TopicPersistencePort;
@@ -46,13 +50,19 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 	private final TopicViewerSnapshotPort topicViewerSnapshotPort;
 	private final TopicCreatedEventPort topicCreatedEventPort;
 	private final TopicAgitSyncEventPort topicAgitSyncEventPort;
+	private final AgitMembershipPort agitMembershipPort;
 
 	@Override
 	@Transactional
-	public TopicResult create(CreateTopicRequestDto request) {
+	public TopicResult create(CreateTopicRequestDto request, UUID actorUuid, String authorization) {
+		requireActor(actorUuid);
+		if (request.getAgitUuid() == null) {
+			throw new IllegalArgumentException("agitUuid는 필수입니다.");
+		}
+		requireActiveMember(request.getAgitUuid(), authorization);
 		Topic saved = topicPersistencePort.save(Topic.create(
 				request.getAgitUuid(),
-				request.getCreatorUuid(),
+				actorUuid,
 				request.getTitle(),
 				request.getStartAt()
 		));
@@ -64,12 +74,14 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 
 	@Override
 	@Transactional
-	public TopicResult update(UUID topicUuid, UpdateTopicRequestDto request) {
+	public TopicResult update(UUID topicUuid, UpdateTopicRequestDto request, UUID actorUuid, String authorization) {
 		if (topicUuid == null) {
 			throw new IllegalArgumentException("topicUuid는 필수입니다.");
 		}
+		requireActor(actorUuid);
 		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
+		requireCreatorOrHost(topic, actorUuid, authorization);
 		LocalDate oldDay = topic.getStartAt().toLocalDate();
 		Topic updated = topic.update(request.getTitle(), request.getStartAt());
 		Topic saved = topicPersistencePort.update(updated);
@@ -90,12 +102,14 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 
 	@Override
 	@Transactional
-	public void delete(UUID topicUuid) {
+	public void delete(UUID topicUuid, UUID actorUuid, String authorization) {
 		if (topicUuid == null) {
 			throw new IllegalArgumentException("topicUuid는 필수입니다.");
 		}
+		requireActor(actorUuid);
 		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
+		requireCreatorOrHost(topic, actorUuid, authorization);
 		topic.assertDeletable();
 		topicPersistencePort.deleteByTopicUuid(topicUuid);
 		topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
@@ -130,6 +144,36 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 		return topicPersistencePort.findByAgitUuidAndListStatus(agitUuid, status, today, resolveListLimit(limit)).stream()
 				.map(TopicResult::from)
 				.toList();
+	}
+
+	private void requireActor(UUID actorUuid) {
+		if (actorUuid == null) {
+			throw new UnauthenticatedActorException();
+		}
+	}
+
+	private void requireActiveMember(UUID agitUuid, String authorization) {
+		requireAuthorization(authorization);
+		agitMembershipPort.findActiveMember(agitUuid, authorization)
+				.orElseThrow(ForbiddenActorException::new);
+	}
+
+	private void requireCreatorOrHost(Topic topic, UUID actorUuid, String authorization) {
+		if (actorUuid.equals(topic.getCreatorUuid())) {
+			return;
+		}
+		requireAuthorization(authorization);
+		AgitMembership membership = agitMembershipPort.findActiveMember(topic.getAgitUuid(), authorization)
+				.orElseThrow(ForbiddenActorException::new);
+		if (!membership.isHost()) {
+			throw new ForbiddenActorException();
+		}
+	}
+
+	private void requireAuthorization(String authorization) {
+		if (authorization == null || authorization.isBlank()) {
+			throw new UnauthenticatedActorException();
+		}
 	}
 
 	private int resolveListLimit(Integer limit) {
