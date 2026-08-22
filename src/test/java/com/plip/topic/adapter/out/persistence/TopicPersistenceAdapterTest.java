@@ -161,6 +161,72 @@ class TopicPersistenceAdapterTest {
 	}
 
 	@Test
+	void findFeedOngoingWithVideos_excludesEmptyUpcomingAndDeleted() {
+		UUID agitUuid = UUID.randomUUID();
+		UUID creatorUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "오늘-빈", today.atStartOfDay()));
+		Topic first = topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "오늘-1", today.atTime(8, 0)));
+		Topic second = topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "오늘-2", today.atTime(12, 0)));
+		topicPersistencePort.addVideoIfAbsent(first.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+		topicPersistencePort.addVideoIfAbsent(second.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+		Topic upcoming = topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "내일", today.plusDays(1).atStartOfDay()));
+		topicPersistencePort.addVideoIfAbsent(upcoming.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+		Topic deleted = topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "삭제", today.atTime(9, 0)));
+		topicPersistencePort.addVideoIfAbsent(deleted.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+		topicPersistencePort.deleteByTopicUuid(deleted.getTopicUuid());
+
+		List<Topic> ongoing = topicPersistencePort.findFeedOngoingWithVideos(agitUuid, today);
+
+		assertThat(ongoing).extracting(Topic::getTitle).containsExactly("오늘-1", "오늘-2");
+	}
+
+	@Test
+	void findFeedPastFromStart_ordersRecentPastFirstAndSkipsEmpty() {
+		UUID agitUuid = UUID.randomUUID();
+		UUID creatorUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		Topic yesterday = topicPersistencePort.save(
+				Topic.create(agitUuid, creatorUuid, "어제", today.minusDays(1).atStartOfDay()));
+		Topic older = topicPersistencePort.save(
+				Topic.create(agitUuid, creatorUuid, "그저께", today.minusDays(2).atStartOfDay()));
+		topicPersistencePort.save(Topic.create(agitUuid, creatorUuid, "빈-어제", today.minusDays(1).atTime(12, 0)));
+		topicPersistencePort.addVideoIfAbsent(yesterday.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+		topicPersistencePort.addVideoIfAbsent(older.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+
+		List<Topic> past = topicPersistencePort.findFeedPastFromStart(agitUuid, today, 10);
+
+		assertThat(past).extracting(Topic::getTitle).containsExactly("어제", "그저께");
+	}
+
+	@Test
+	void findFeedAnchorOnDate_picksTodayFirstOrLatestPastDay() {
+		UUID agitUuid = UUID.randomUUID();
+		UUID creatorUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		Topic todayFirst = topicPersistencePort.save(
+				Topic.create(agitUuid, creatorUuid, "오늘-첫", today.atTime(8, 0)));
+		Topic todaySecond = topicPersistencePort.save(
+				Topic.create(agitUuid, creatorUuid, "오늘-다음", today.atTime(18, 0)));
+		Topic pastMorning = topicPersistencePort.save(
+				Topic.create(agitUuid, creatorUuid, "어제-아침", today.minusDays(1).atTime(8, 0)));
+		Topic pastEvening = topicPersistencePort.save(
+				Topic.create(agitUuid, creatorUuid, "어제-저녁", today.minusDays(1).atTime(20, 0)));
+		topicPersistencePort.addVideoIfAbsent(todayFirst.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+		topicPersistencePort.addVideoIfAbsent(todaySecond.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+		topicPersistencePort.addVideoIfAbsent(pastMorning.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+		topicPersistencePort.addVideoIfAbsent(pastEvening.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
+
+		assertThat(topicPersistencePort.findFeedAnchorOnDate(agitUuid, today, today))
+				.map(Topic::getTitle)
+				.contains("오늘-첫");
+		assertThat(topicPersistencePort.findFeedAnchorOnDate(agitUuid, today, today.minusDays(1)))
+				.map(Topic::getTitle)
+				.contains("어제-저녁");
+		assertThat(topicPersistencePort.findFeedAnchorOnDate(agitUuid, today, today.plusDays(1))).isEmpty();
+	}
+
+	@Test
 	void findActiveDates_returnsDaysWithVideosOnly() {
 		UUID agitUuid = UUID.randomUUID();
 		UUID creatorUuid = UUID.randomUUID();

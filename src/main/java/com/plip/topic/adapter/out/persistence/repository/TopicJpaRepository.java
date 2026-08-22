@@ -72,4 +72,98 @@ public interface TopicJpaRepository extends JpaRepository<TopicEntity, Long> {
 			@Param("toExclusive") LocalDateTime toExclusive,
 			org.springframework.data.domain.Pageable pageable
 	);
+
+	@EntityGraph(attributePaths = "videos")
+	@Query("""
+			SELECT t FROM TopicEntity t
+			WHERE t.agitUuid = :agitUuid
+			  AND t.deletedAt IS NULL
+			  AND t.startAt >= :fromInclusive
+			  AND t.startAt < :toExclusive
+			  AND SIZE(t.videos) > 0
+			ORDER BY t.startAt ASC, t.createdAt ASC, t.topicUuid ASC
+			""")
+	List<TopicEntity> findFeedOngoingWithVideos(
+			@Param("agitUuid") UUID agitUuid,
+			@Param("fromInclusive") LocalDateTime fromInclusive,
+			@Param("toExclusive") LocalDateTime toExclusive
+	);
+
+	@EntityGraph(attributePaths = "videos")
+	@Query("""
+			SELECT t FROM TopicEntity t
+			WHERE t.agitUuid = :agitUuid
+			  AND t.deletedAt IS NULL
+			  AND t.startAt >= :fromInclusive
+			  AND t.startAt < :toExclusive
+			  AND SIZE(t.videos) > 0
+			ORDER BY t.startAt DESC, t.createdAt DESC, t.topicUuid DESC
+			""")
+	List<TopicEntity> findFeedOnDatePastOrder(
+			@Param("agitUuid") UUID agitUuid,
+			@Param("fromInclusive") LocalDateTime fromInclusive,
+			@Param("toExclusive") LocalDateTime toExclusive,
+			org.springframework.data.domain.Pageable pageable
+	);
+
+	@EntityGraph(attributePaths = "videos")
+	@Query("""
+			SELECT t FROM TopicEntity t
+			WHERE t.agitUuid = :agitUuid
+			  AND t.deletedAt IS NULL
+			  AND t.startAt < :toExclusive
+			  AND SIZE(t.videos) > 0
+			ORDER BY t.startAt DESC, t.createdAt DESC, t.topicUuid DESC
+			""")
+	List<TopicEntity> findFeedPastFromStart(
+			@Param("agitUuid") UUID agitUuid,
+			@Param("toExclusive") LocalDateTime toExclusive,
+			org.springframework.data.domain.Pageable pageable
+	);
+
+	@EntityGraph(attributePaths = "videos")
+	@Query("""
+			SELECT t FROM TopicEntity t
+			WHERE t.agitUuid = :agitUuid
+			  AND t.deletedAt IS NULL
+			  AND t.startAt < :toExclusive
+			  AND SIZE(t.videos) > 0
+			  AND (
+			    t.startAt < :startAt
+			    OR (t.startAt = :startAt AND t.createdAt < :createdAt)
+			    OR (t.startAt = :startAt AND t.createdAt = :createdAt AND t.topicUuid < :topicUuid)
+			  )
+			ORDER BY t.startAt DESC, t.createdAt DESC, t.topicUuid DESC
+			""")
+	List<TopicEntity> findFeedPastOlderThan(
+			@Param("agitUuid") UUID agitUuid,
+			@Param("toExclusive") LocalDateTime toExclusive,
+			@Param("startAt") LocalDateTime startAt,
+			@Param("createdAt") LocalDateTime createdAt,
+			@Param("topicUuid") UUID topicUuid,
+			org.springframework.data.domain.Pageable pageable
+	);
+
+	@EntityGraph(attributePaths = "videos")
+	@Query("""
+			SELECT t FROM TopicEntity t
+			WHERE t.agitUuid = :agitUuid
+			  AND t.deletedAt IS NULL
+			  AND t.startAt < :toExclusive
+			  AND SIZE(t.videos) > 0
+			  AND (
+			    t.startAt > :startAt
+			    OR (t.startAt = :startAt AND t.createdAt > :createdAt)
+			    OR (t.startAt = :startAt AND t.createdAt = :createdAt AND t.topicUuid > :topicUuid)
+			  )
+			ORDER BY t.startAt ASC, t.createdAt ASC, t.topicUuid ASC
+			""")
+	List<TopicEntity> findFeedPastNewerThan(
+			@Param("agitUuid") UUID agitUuid,
+			@Param("toExclusive") LocalDateTime toExclusive,
+			@Param("startAt") LocalDateTime startAt,
+			@Param("createdAt") LocalDateTime createdAt,
+			@Param("topicUuid") UUID topicUuid,
+			org.springframework.data.domain.Pageable pageable
+	);
 }
