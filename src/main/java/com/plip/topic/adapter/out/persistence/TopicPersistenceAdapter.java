@@ -7,6 +7,7 @@ import com.plip.topic.adapter.out.persistence.repository.TopicCalendarDayJpaRepo
 import com.plip.topic.adapter.out.persistence.repository.TopicJpaRepository;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.domain.model.Topic;
+import com.plip.topic.domain.model.TopicListStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
@@ -48,6 +49,21 @@ public class TopicPersistenceAdapter implements TopicPersistencePort {
 				.stream()
 				.map(topicPersistenceMapper::toDomain)
 				.toList();
+	}
+
+	@Override
+	public List<Topic> findByAgitUuidAndListStatus(UUID agitUuid, TopicListStatus status, LocalDate today, int limit) {
+		LocalDateTime dayStart = today.atStartOfDay();
+		LocalDateTime nextDayStart = today.plusDays(1).atStartOfDay();
+		List<TopicEntity> entities = switch (status) {
+			case ONGOING -> topicJpaRepository.findOngoingByAgitUuid(
+					agitUuid, dayStart, nextDayStart, PageRequest.of(0, limit));
+			case UPCOMING -> topicJpaRepository.findUpcomingByAgitUuid(
+					agitUuid, nextDayStart, PageRequest.of(0, limit));
+			case PAST -> topicJpaRepository.findPastByAgitUuid(
+					agitUuid, dayStart, PageRequest.of(0, limit));
+		};
+		return entities.stream().map(topicPersistenceMapper::toDomain).toList();
 	}
 
 	@Override

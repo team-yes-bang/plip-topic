@@ -16,6 +16,7 @@ import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
 import com.plip.topic.application.port.out.TopicViewerSnapshotPort;
 import com.plip.topic.domain.model.Topic;
+import com.plip.topic.domain.model.TopicListStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,6 +37,9 @@ import java.util.UUID;
 public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopicCalendarUseCase, CreateTopicUseCase, UpdateTopicUseCase, DeleteTopicUseCase {
 
 	private static final int LATEST_LIMIT = 10;
+	private static final int DEFAULT_LIST_LIMIT = 10;
+	private static final int MAX_LIST_LIMIT = 20;
+	private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
 	private final TopicPersistencePort topicPersistencePort;
 	private final TopicReadCachePort topicReadCachePort;
@@ -111,6 +116,27 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 					topicReadCachePort.putLatestTopics(agitUuid, results);
 					return results;
 				});
+	}
+
+	@Override
+	public List<TopicResult> listByAgitUuidAndStatus(UUID agitUuid, TopicListStatus status, Integer limit) {
+		if (agitUuid == null) {
+			throw new IllegalArgumentException("agitUuid는 필수입니다.");
+		}
+		if (status == null) {
+			throw new IllegalArgumentException("status는 필수입니다.");
+		}
+		LocalDate today = LocalDate.now(KST);
+		return topicPersistencePort.findByAgitUuidAndListStatus(agitUuid, status, today, resolveListLimit(limit)).stream()
+				.map(TopicResult::from)
+				.toList();
+	}
+
+	private int resolveListLimit(Integer limit) {
+		if (limit == null) {
+			return DEFAULT_LIST_LIMIT;
+		}
+		return Math.min(MAX_LIST_LIMIT, Math.max(1, limit));
 	}
 
 	@Override

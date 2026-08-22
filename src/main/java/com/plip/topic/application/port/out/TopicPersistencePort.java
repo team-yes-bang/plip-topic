@@ -1,6 +1,7 @@
 package com.plip.topic.application.port.out;
 
 import com.plip.topic.domain.model.Topic;
+import com.plip.topic.domain.model.TopicListStatus;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -15,6 +16,8 @@ public interface TopicPersistencePort {
 	Optional<Topic> findByTopicUuid(UUID topicUuid);
 
 	List<Topic> findLatestByAgitUuid(UUID agitUuid, int limit);
+
+	List<Topic> findByAgitUuidAndListStatus(UUID agitUuid, TopicListStatus status, LocalDate today, int limit);
 
 	List<LocalDate> findActiveDates(UUID agitUuid, YearMonth yearMonth);
 
