@@ -20,8 +20,10 @@ import com.plip.topic.domain.model.TopicListStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -56,18 +58,26 @@ public class TopicController {
 	private final DetachTopicVideoUseCase detachTopicVideoUseCase;
 	private final TopicWebMapper topicWebMapper;
 
-	@Operation(summary = "토픽 생성", description = "아지트에 주제를 만듭니다. 영상은 붙이지 않습니다.")
+	@Operation(summary = "토픽 생성", description = "아지트에 주제를 만듭니다. 생성자는 X-User-UUID이며 ACTIVE 멤버만 가능합니다. 영상은 붙이지 않습니다.")
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
-	public TopicResponseDto create(@RequestBody CreateTopicRequest request) {
-		return topicWebMapper.toDto(createTopicUseCase.create(topicWebMapper.toDto(request)), null);
+	public TopicResponseDto create(@RequestBody CreateTopicRequest request, HttpServletRequest httpRequest) {
+		UUID actorUuid = RequestActor.requireUserUuid(httpRequest);
+		return topicWebMapper.toDto(
+				createTopicUseCase.create(
+						topicWebMapper.toDto(request),
+						actorUuid,
+						RequestActor.requireAuthorization(httpRequest)
+				),
+				actorUuid
+		);
 	}
 
 	// TODO: GET /api/v1/topics/feed — 피드형 목록. cursor 페이지는 이 엔드포인트에서 도입.
 	// videoCount == 0 은 feed에서 제외. list는 0개여도 포함.
 	@Operation(
 			summary = "토픽 구간 목록 조회",
-			description = "아지트의 토픽을 KST 날짜 기준 ONGOING/UPCOMING/PAST로 조회합니다. 최신 10개 갤러리는 GET /topics."
+			description = "아지트의 토픽을 KST 날짜 기준 ONGOING/UPCOMING/PAST로 조회합니다. 최신 10개 갤러리는 GET /topics. actor가 있으면 uploadedByMe를 채웁니다."
 	)
 	@GetMapping("/list")
 	public List<TopicResponseDto> listByStatus(
@@ -76,50 +86,67 @@ public class TopicController {
 			@Parameter(description = "KST 날짜 구간. ONGOING=오늘, UPCOMING=이후, PAST=이전", required = true)
 			@RequestParam TopicListStatus status,
 			@Parameter(description = "최대 개수. 생략 시 10, 1~20으로 제한")
-			@RequestParam(required = false) Integer limit
+			@RequestParam(required = false) Integer limit,
+			HttpServletRequest httpRequest
 	) {
-		return topicWebMapper.toDtoList(listTopicsUseCase.listByAgitUuidAndStatus(agitUuid, status, limit), null);
+		return topicWebMapper.toDtoList(
+				listTopicsUseCase.listByAgitUuidAndStatus(agitUuid, status, limit),
+				RequestActor.findUserUuid(httpRequest)
+		);
 	}
 
 	@Operation(summary = "토픽 단건 조회")
 	@GetMapping("/{topicUuid}")
-	public TopicResponseDto get(
-			@PathVariable UUID topicUuid,
-			@Parameter(description = "조회 사용자 UUID. 있으면 uploadedByMe를 채운다 (임시 — 추후 인증)")
-			@RequestParam(required = false) UUID userUuid
-	) {
-		return topicWebMapper.toDto(getTopicUseCase.get(topicUuid), userUuid);
+	public TopicResponseDto get(@PathVariable UUID topicUuid, HttpServletRequest httpRequest) {
+		return topicWebMapper.toDto(getTopicUseCase.get(topicUuid), RequestActor.findUserUuid(httpRequest));
 	}
 
-	@Operation(summary = "토픽 수정", description = "제목 또는 진행일. 전달하지 않은 필드는 유지됩니다.")
+	@Operation(summary = "토픽 수정", description = "제목 또는 진행일. 전달하지 않은 필드는 유지됩니다. 생성자 또는 HOST만 가능합니다.")
 	@PatchMapping("/{topicUuid}")
 	public TopicResponseDto update(
 			@Parameter(description = "토픽 UUID", required = true)
 			@PathVariable UUID topicUuid,
-			@RequestBody UpdateTopicRequest request
+			@RequestBody UpdateTopicRequest request,
+			HttpServletRequest httpRequest
 	) {
-		return topicWebMapper.toDto(updateTopicUseCase.update(topicUuid, topicWebMapper.toDto(request)), null);
+		UUID actorUuid = RequestActor.requireUserUuid(httpRequest);
+		return topicWebMapper.toDto(
+				updateTopicUseCase.update(
+						topicUuid,
+						topicWebMapper.toDto(request),
+						actorUuid,
+						httpRequest.getHeader(HttpHeaders.AUTHORIZATION)
+				),
+				actorUuid
+		);
 	}
 
-	@Operation(summary = "토픽 삭제", description = "영상이 없는 토픽만 소프트 삭제합니다.")
+	@Operation(summary = "토픽 삭제", description = "영상이 없는 토픽만 소프트 삭제합니다. 생성자 또는 HOST만 가능합니다.")
 	@DeleteMapping("/{topicUuid}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void delete(
 			@Parameter(description = "토픽 UUID", required = true)
-			@PathVariable UUID topicUuid
+			@PathVariable UUID topicUuid,
+			HttpServletRequest httpRequest
 	) {
-		deleteTopicUseCase.delete(topicUuid);
+		deleteTopicUseCase.delete(
+				topicUuid,
+				RequestActor.requireUserUuid(httpRequest),
+				httpRequest.getHeader(HttpHeaders.AUTHORIZATION)
+		);
 	}
 
-	@Operation(summary = "토픽 목록 조회", description = "아지트의 startAt 최신 토픽 최대 10개. 영상 격자는 GET /{topicUuid}/videos.")
+	@Operation(summary = "토픽 목록 조회", description = "아지트의 startAt 최신 토픽 최대 10개. 영상 격자는 GET /{topicUuid}/videos. actor가 있으면 uploadedByMe를 채웁니다.")
 	@GetMapping
 	public List<TopicResponseDto> list(
 			@Parameter(description = "아지트 UUID", required = true)
 			@RequestParam UUID agitUuid,
-			@Parameter(description = "조회 사용자 UUID. 있으면 uploadedByMe를 채운다 (임시 — 추후 인증)")
-			@RequestParam(required = false) UUID userUuid
+			HttpServletRequest httpRequest
 	) {
-		return topicWebMapper.toDtoList(listTopicsUseCase.listLatestByAgitUuid(agitUuid), userUuid);
+		return topicWebMapper.toDtoList(
+				listTopicsUseCase.listLatestByAgitUuid(agitUuid),
+				RequestActor.findUserUuid(httpRequest)
+		);
 	}
 
 	@Operation(
@@ -144,33 +171,40 @@ public class TopicController {
 				.toList();
 	}
 
-	@Operation(summary = "토픽에 영상 붙이기", description = "사용자당 토픽당 1개. 같은 영상 재요청은 200.")
+	@Operation(summary = "토픽에 영상 붙이기", description = "사용자당 토픽당 1개. 같은 영상 재요청은 200. 업로더는 actor이며 ACTIVE 멤버만 가능합니다.")
 	@PostMapping("/{topicUuid}/videos")
 	public ResponseEntity<TopicVideoResponseDto> attachVideo(
 			@PathVariable UUID topicUuid,
-			@RequestBody AttachTopicVideoRequest request
+			@RequestBody AttachTopicVideoRequest request,
+			HttpServletRequest httpRequest
 	) {
-		boolean created = attachTopicVideoUseCase.attachOrThrow(topicUuid, request.getVideoUuid(), request.getUserUuid());
+		UUID actorUuid = RequestActor.requireUserUuid(httpRequest);
+		String authorization = RequestActor.requireAuthorization(httpRequest);
+		boolean created = attachTopicVideoUseCase.attachOrThrow(
+				topicUuid,
+				request.getVideoUuid(),
+				actorUuid,
+				authorization
+		);
 		TopicVideoResponseDto body = listTopicVideosUseCase.list(topicUuid).stream()
 				.filter(video -> video.getVideoUuid().equals(request.getVideoUuid()))
 				.findFirst()
 				.map(topicWebMapper::toVideoDto)
 				.orElseGet(() -> TopicVideoResponseDto.builder()
 						.videoUuid(request.getVideoUuid())
-						.userUuid(request.getUserUuid())
+						.userUuid(actorUuid)
 						.build());
 		return ResponseEntity.status(created ? HttpStatus.CREATED : HttpStatus.OK).body(body);
 	}
 
-	@Operation(summary = "토픽에서 영상 제거", description = "본인 영상만 제거할 수 있습니다.")
+	@Operation(summary = "토픽에서 영상 제거", description = "본인 영상만 제거할 수 있습니다. 업로더는 actor입니다.")
 	@DeleteMapping("/{topicUuid}/videos/{videoUuid}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void detachVideo(
 			@PathVariable UUID topicUuid,
 			@PathVariable UUID videoUuid,
-			@Parameter(description = "업로더 UUID (임시 — 추후 인증)", required = true)
-			@RequestParam UUID userUuid
+			HttpServletRequest httpRequest
 	) {
-		detachTopicVideoUseCase.detach(topicUuid, videoUuid, userUuid);
+		detachTopicVideoUseCase.detach(topicUuid, videoUuid, RequestActor.requireUserUuid(httpRequest));
 	}
 }
