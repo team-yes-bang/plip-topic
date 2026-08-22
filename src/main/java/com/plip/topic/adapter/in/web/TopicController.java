@@ -3,6 +3,7 @@ package com.plip.topic.adapter.in.web;
 import com.plip.topic.adapter.in.web.dto.AttachTopicVideoRequest;
 import com.plip.topic.adapter.in.web.dto.CreateTopicRequest;
 import com.plip.topic.adapter.in.web.dto.TopicCalendarResponse;
+import com.plip.topic.adapter.in.web.dto.TopicFeedResponseDto;
 import com.plip.topic.adapter.in.web.dto.TopicResponseDto;
 import com.plip.topic.adapter.in.web.dto.TopicVideoResponseDto;
 import com.plip.topic.adapter.in.web.dto.UpdateTopicRequest;
@@ -13,6 +14,7 @@ import com.plip.topic.application.port.in.CreateTopicUseCase;
 import com.plip.topic.application.port.in.DeleteTopicUseCase;
 import com.plip.topic.application.port.in.DetachTopicVideoUseCase;
 import com.plip.topic.application.port.in.GetTopicCalendarUseCase;
+import com.plip.topic.application.port.in.GetTopicFeedUseCase;
 import com.plip.topic.application.port.in.GetTopicUseCase;
 import com.plip.topic.application.port.in.ListTopicVideosUseCase;
 import com.plip.topic.application.port.in.ListTopicsUseCase;
@@ -38,6 +40,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
@@ -50,6 +53,7 @@ public class TopicController {
 
 	private final ListTopicsUseCase listTopicsUseCase;
 	private final GetTopicUseCase getTopicUseCase;
+	private final GetTopicFeedUseCase getTopicFeedUseCase;
 	private final GetTopicCalendarUseCase getTopicCalendarUseCase;
 	private final CreateTopicUseCase createTopicUseCase;
 	private final UpdateTopicUseCase updateTopicUseCase;
@@ -74,8 +78,29 @@ public class TopicController {
 		);
 	}
 
-	// TODO: GET /api/v1/topics/feed — 피드형 목록. cursor 페이지는 이 엔드포인트에서 도입.
-	// videoCount == 0 은 feed에서 제외. list는 0개여도 포함.
+	@Operation(
+			summary = "토픽 뷰어 이웃 조회",
+			description = "영상 있는 토픽만, 오늘 다음 지난 순서. topicUuid 또는 date 중 하나만. before/after 기본 1 최대 3."
+	)
+	@GetMapping("/feed")
+	public TopicFeedResponseDto feed(
+			@Parameter(description = "아지트 UUID", required = true)
+			@RequestParam UUID agitUuid,
+			@Parameter(description = "기준 토픽 UUID. date와 함께 쓸 수 없음")
+			@RequestParam(required = false) UUID topicUuid,
+			@Parameter(description = "기준 날짜(KST yyyy-MM-dd). topicUuid와 함께 쓸 수 없음")
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+			@Parameter(description = "앞쪽 개수. 생략 시 1, 0~3")
+			@RequestParam(required = false) Integer before,
+			@Parameter(description = "뒤쪽 개수. 생략 시 1, 0~3")
+			@RequestParam(required = false) Integer after
+	) {
+		return topicWebMapper.toFeedDto(
+				getTopicFeedUseCase.feed(agitUuid, topicUuid, date, before, after),
+				AuthenticatedActor.findUserUuid()
+		);
+	}
+
 	@Operation(
 			summary = "토픽 구간 목록 조회",
 			description = "아지트의 토픽을 KST 날짜 기준 ONGOING/UPCOMING/PAST로 조회합니다. 최신 10개 갤러리는 GET /topics. actor가 있으면 uploadedByMe를 채웁니다."

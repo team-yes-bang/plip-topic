@@ -141,6 +141,56 @@ class TopicServiceTest {
 	}
 
 	@Test
+	void feed_requiresExactlyOneOfTopicUuidOrDate() {
+		UUID agitUuid = UUID.randomUUID();
+		assertThatThrownBy(() -> topicService.feed(null, UUID.randomUUID(), null, 1, 1))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("agitUuid는 필수입니다.");
+		assertThatThrownBy(() -> topicService.feed(agitUuid, null, null, 1, 1))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("topicUuid 또는 date 중 하나만 필요합니다.");
+		assertThatThrownBy(() -> topicService.feed(agitUuid, UUID.randomUUID(), LocalDate.now(ZoneId.of("Asia/Seoul")), 1, 1))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("topicUuid 또는 date 중 하나만 필요합니다.");
+	}
+
+	@Test
+	void feed_returnsNeighborsTodayThenPastNearestFirst() {
+		UUID agitUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		Topic todayFirst = topicWithVideo(agitUuid, "오늘-1", today.atTime(8, 0));
+		Topic todaySecond = topicWithVideo(agitUuid, "오늘-2", today.atTime(12, 0));
+		Topic yesterday = topicWithVideo(agitUuid, "어제", today.minusDays(1).atStartOfDay());
+		given(topicPersistencePort.findByTopicUuid(todaySecond.getTopicUuid())).willReturn(Optional.of(todaySecond));
+		given(topicPersistencePort.findFeedOngoingWithVideos(agitUuid, today)).willReturn(List.of(todayFirst, todaySecond));
+		given(topicPersistencePort.findFeedPastFromStart(agitUuid, today, 1)).willReturn(List.of(yesterday));
+
+		var result = topicService.feed(agitUuid, todaySecond.getTopicUuid(), null, 1, 1);
+
+		assertThat(result.getCurrent().getTitle()).isEqualTo("오늘-2");
+		assertThat(result.getBefore()).extracting(item -> item.getTitle()).containsExactly("오늘-1");
+		assertThat(result.getAfter()).extracting(item -> item.getTitle()).containsExactly("어제");
+	}
+
+	@Test
+	void feed_skipsUpcomingAndEmptyWhenResolvedByTopic() {
+		UUID agitUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		Topic empty = Topic.create(agitUuid, UUID.randomUUID(), "빈", today.atStartOfDay());
+		given(topicPersistencePort.findByTopicUuid(empty.getTopicUuid())).willReturn(Optional.of(empty));
+
+		var result = topicService.feed(agitUuid, empty.getTopicUuid(), null, 1, 1);
+
+		assertThat(result.getCurrent()).isNull();
+		assertThat(result.getBefore()).isEmpty();
+		assertThat(result.getAfter()).isEmpty();
+	}
+
+	private static Topic topicWithVideo(UUID agitUuid, String title, LocalDateTime startAt) {
+		return Topic.create(agitUuid, UUID.randomUUID(), title, startAt).attachVideo(UUID.randomUUID(), UUID.randomUUID());
+	}
+
+	@Test
 	void get_returnsTopic() {
 		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
 		given(topicViewerSnapshotPort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.empty());
