@@ -3,6 +3,8 @@ info:
   title: Topic Service API
   description: 아지트 토픽 API
   version: v1.0.0
+security:
+- bearerAuth: []
 servers:
 - url: http://localhost
   description: Generated server url
@@ -771,3 +773,8 @@ components:
           items:
             type: string
             format: date
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
