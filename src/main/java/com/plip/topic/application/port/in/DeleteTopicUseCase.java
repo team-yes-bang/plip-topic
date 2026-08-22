@@ -4,5 +4,5 @@ import java.util.UUID;
 
 public interface DeleteTopicUseCase {
 
-	void delete(UUID topicUuid);
+	void delete(UUID topicUuid, UUID actorUuid, String authorization);
 }

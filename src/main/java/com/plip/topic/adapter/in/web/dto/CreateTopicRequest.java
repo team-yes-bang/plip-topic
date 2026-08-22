@@ -17,9 +17,6 @@ public class CreateTopicRequest {
 	@Schema(description = "아지트 UUID", requiredMode = Schema.RequiredMode.REQUIRED)
 	private UUID agitUuid;
 
-	@Schema(description = "생성자 UUID (임시 body 전달 — 추후 인증에서 추출)", requiredMode = Schema.RequiredMode.REQUIRED)
-	private UUID creatorUuid;
-
 	@Schema(description = "토픽 제목", example = "점심 메뉴")
 	private String title;
 

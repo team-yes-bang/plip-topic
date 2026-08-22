@@ -11,7 +11,6 @@ import java.util.UUID;
 public class CreateTopicRequestDto {
 
 	private final UUID agitUuid;
-	private final UUID creatorUuid;
 	private final String title;
 	private final LocalDateTime startAt;
 }

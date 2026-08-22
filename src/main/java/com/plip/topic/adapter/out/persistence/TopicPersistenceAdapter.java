@@ -7,6 +7,7 @@ import com.plip.topic.adapter.out.persistence.repository.TopicCalendarDayJpaRepo
 import com.plip.topic.adapter.out.persistence.repository.TopicJpaRepository;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.domain.model.Topic;
+import com.plip.topic.domain.model.TopicListStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
@@ -48,6 +49,93 @@ public class TopicPersistenceAdapter implements TopicPersistencePort {
 				.stream()
 				.map(topicPersistenceMapper::toDomain)
 				.toList();
+	}
+
+	@Override
+	public List<Topic> findByAgitUuidAndListStatus(UUID agitUuid, TopicListStatus status, LocalDate today, int limit) {
+		LocalDateTime dayStart = today.atStartOfDay();
+		LocalDateTime nextDayStart = today.plusDays(1).atStartOfDay();
+		List<TopicEntity> entities = switch (status) {
+			case ONGOING -> topicJpaRepository.findOngoingByAgitUuid(
+					agitUuid, dayStart, nextDayStart, PageRequest.of(0, limit));
+			case UPCOMING -> topicJpaRepository.findUpcomingByAgitUuid(
+					agitUuid, nextDayStart, PageRequest.of(0, limit));
+			case PAST -> topicJpaRepository.findPastByAgitUuid(
+					agitUuid, dayStart, PageRequest.of(0, limit));
+		};
+		return entities.stream().map(topicPersistenceMapper::toDomain).toList();
+	}
+
+	@Override
+	public List<Topic> findFeedOngoingWithVideos(UUID agitUuid, LocalDate today) {
+		LocalDateTime dayStart = today.atStartOfDay();
+		LocalDateTime nextDayStart = today.plusDays(1).atStartOfDay();
+		return topicJpaRepository.findFeedOngoingWithVideos(agitUuid, dayStart, nextDayStart).stream()
+				.map(topicPersistenceMapper::toDomain)
+				.toList();
+	}
+
+	@Override
+	public List<Topic> findFeedPastFromStart(UUID agitUuid, LocalDate today, int limit) {
+		if (limit <= 0) {
+			return List.of();
+		}
+		return topicJpaRepository.findFeedPastFromStart(
+						agitUuid, today.atStartOfDay(), PageRequest.of(0, limit))
+				.stream()
+				.map(topicPersistenceMapper::toDomain)
+				.toList();
+	}
+
+	@Override
+	public List<Topic> findFeedPastOlderThan(UUID agitUuid, LocalDate today, Topic current, int limit) {
+		if (limit <= 0 || current == null || current.getCreatedAt() == null) {
+			return List.of();
+		}
+		return topicJpaRepository.findFeedPastOlderThan(
+						agitUuid,
+						today.atStartOfDay(),
+						current.getStartAt(),
+						current.getCreatedAt(),
+						current.getTopicUuid(),
+						PageRequest.of(0, limit))
+				.stream()
+				.map(topicPersistenceMapper::toDomain)
+				.toList();
+	}
+
+	@Override
+	public List<Topic> findFeedPastNewerThan(UUID agitUuid, LocalDate today, Topic current, int limit) {
+		if (limit <= 0 || current == null || current.getCreatedAt() == null) {
+			return List.of();
+		}
+		return topicJpaRepository.findFeedPastNewerThan(
+						agitUuid,
+						today.atStartOfDay(),
+						current.getStartAt(),
+						current.getCreatedAt(),
+						current.getTopicUuid(),
+						PageRequest.of(0, limit))
+				.stream()
+				.map(topicPersistenceMapper::toDomain)
+				.toList();
+	}
+
+	@Override
+	public Optional<Topic> findFeedAnchorOnDate(UUID agitUuid, LocalDate today, LocalDate date) {
+		if (date == null || date.isAfter(today)) {
+			return Optional.empty();
+		}
+		LocalDateTime from = date.atStartOfDay();
+		LocalDateTime to = date.plusDays(1).atStartOfDay();
+		if (date.equals(today)) {
+			return topicJpaRepository.findFeedOngoingWithVideos(agitUuid, from, to).stream()
+					.findFirst()
+					.map(topicPersistenceMapper::toDomain);
+		}
+		return topicJpaRepository.findFeedOnDatePastOrder(agitUuid, from, to, PageRequest.of(0, 1)).stream()
+				.findFirst()
+				.map(topicPersistenceMapper::toDomain);
 	}
 
 	@Override

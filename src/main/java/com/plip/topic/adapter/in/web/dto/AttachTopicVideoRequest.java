@@ -15,7 +15,4 @@ public class AttachTopicVideoRequest {
 
 	@Schema(description = "비디오 UUID", requiredMode = Schema.RequiredMode.REQUIRED)
 	private UUID videoUuid;
-
-	@Schema(description = "업로더 UUID (임시 body — 추후 인증에서 추출)", requiredMode = Schema.RequiredMode.REQUIRED)
-	private UUID userUuid;
 }

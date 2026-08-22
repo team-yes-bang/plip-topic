@@ -1,13 +1,19 @@
 package com.plip.topic.application.service;
 
+import com.plip.topic.application.exception.ForbiddenActorException;
+import com.plip.topic.application.exception.UnauthenticatedActorException;
 import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
 import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
+import com.plip.topic.application.port.out.AgitMemberRole;
+import com.plip.topic.application.port.out.AgitMembership;
+import com.plip.topic.application.port.out.AgitMembershipPort;
 import com.plip.topic.application.port.out.TopicAgitSyncEventPort;
 import com.plip.topic.application.port.out.TopicCreatedEventPort;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
 import com.plip.topic.application.port.out.TopicViewerSnapshotPort;
 import com.plip.topic.domain.model.Topic;
+import com.plip.topic.domain.model.TopicListStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -17,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,6 +52,9 @@ class TopicServiceTest {
 
 	@Mock
 	private TopicAgitSyncEventPort topicAgitSyncEventPort;
+
+	@Mock
+	private AgitMembershipPort agitMembershipPort;
 
 	@InjectMocks
 	private TopicService topicService;
@@ -78,6 +88,106 @@ class TopicServiceTest {
 		assertThatThrownBy(() -> topicService.listLatestByAgitUuid(null))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("agitUuid는 필수입니다.");
+	}
+
+	@Test
+	void listByAgitUuidAndStatus_queriesPersistenceWithKstTodayAndClampedLimit() {
+		UUID agitUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		Topic topic = Topic.create(agitUuid, UUID.randomUUID(), "오늘", today.atStartOfDay());
+		given(topicPersistencePort.findByAgitUuidAndListStatus(agitUuid, TopicListStatus.ONGOING, today, 10))
+				.willReturn(List.of(topic));
+
+		var results = topicService.listByAgitUuidAndStatus(agitUuid, TopicListStatus.ONGOING, null);
+
+		assertThat(results).hasSize(1);
+		assertThat(results.get(0).getTitle()).isEqualTo("오늘");
+		verify(topicReadCachePort, never()).getLatestTopics(any());
+		verify(topicPersistencePort).findByAgitUuidAndListStatus(agitUuid, TopicListStatus.ONGOING, today, 10);
+	}
+
+	@Test
+	void listByAgitUuidAndStatus_clampsLimitToTwenty() {
+		UUID agitUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		given(topicPersistencePort.findByAgitUuidAndListStatus(agitUuid, TopicListStatus.PAST, today, 20))
+				.willReturn(List.of());
+
+		topicService.listByAgitUuidAndStatus(agitUuid, TopicListStatus.PAST, 21);
+
+		verify(topicPersistencePort).findByAgitUuidAndListStatus(agitUuid, TopicListStatus.PAST, today, 20);
+	}
+
+	@Test
+	void listByAgitUuidAndStatus_honorsLimitFive() {
+		UUID agitUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		given(topicPersistencePort.findByAgitUuidAndListStatus(agitUuid, TopicListStatus.UPCOMING, today, 5))
+				.willReturn(List.of());
+
+		topicService.listByAgitUuidAndStatus(agitUuid, TopicListStatus.UPCOMING, 5);
+
+		verify(topicPersistencePort).findByAgitUuidAndListStatus(agitUuid, TopicListStatus.UPCOMING, today, 5);
+	}
+
+	@Test
+	void listByAgitUuidAndStatus_requiresAgitUuidAndStatus() {
+		assertThatThrownBy(() -> topicService.listByAgitUuidAndStatus(null, TopicListStatus.ONGOING, 10))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("agitUuid는 필수입니다.");
+		assertThatThrownBy(() -> topicService.listByAgitUuidAndStatus(UUID.randomUUID(), null, 10))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("status는 필수입니다.");
+	}
+
+	@Test
+	void feed_requiresExactlyOneOfTopicUuidOrDate() {
+		UUID agitUuid = UUID.randomUUID();
+		assertThatThrownBy(() -> topicService.feed(null, UUID.randomUUID(), null, 1, 1))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("agitUuid는 필수입니다.");
+		assertThatThrownBy(() -> topicService.feed(agitUuid, null, null, 1, 1))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("topicUuid 또는 date 중 하나만 필요합니다.");
+		assertThatThrownBy(() -> topicService.feed(agitUuid, UUID.randomUUID(), LocalDate.now(ZoneId.of("Asia/Seoul")), 1, 1))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("topicUuid 또는 date 중 하나만 필요합니다.");
+	}
+
+	@Test
+	void feed_returnsNeighborsTodayThenPastNearestFirst() {
+		UUID agitUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		Topic todayFirst = topicWithVideo(agitUuid, "오늘-1", today.atTime(8, 0));
+		Topic todaySecond = topicWithVideo(agitUuid, "오늘-2", today.atTime(12, 0));
+		Topic yesterday = topicWithVideo(agitUuid, "어제", today.minusDays(1).atStartOfDay());
+		given(topicPersistencePort.findByTopicUuid(todaySecond.getTopicUuid())).willReturn(Optional.of(todaySecond));
+		given(topicPersistencePort.findFeedOngoingWithVideos(agitUuid, today)).willReturn(List.of(todayFirst, todaySecond));
+		given(topicPersistencePort.findFeedPastFromStart(agitUuid, today, 1)).willReturn(List.of(yesterday));
+
+		var result = topicService.feed(agitUuid, todaySecond.getTopicUuid(), null, 1, 1);
+
+		assertThat(result.getCurrent().getTitle()).isEqualTo("오늘-2");
+		assertThat(result.getBefore()).extracting(item -> item.getTitle()).containsExactly("오늘-1");
+		assertThat(result.getAfter()).extracting(item -> item.getTitle()).containsExactly("어제");
+	}
+
+	@Test
+	void feed_skipsUpcomingAndEmptyWhenResolvedByTopic() {
+		UUID agitUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		Topic empty = Topic.create(agitUuid, UUID.randomUUID(), "빈", today.atStartOfDay());
+		given(topicPersistencePort.findByTopicUuid(empty.getTopicUuid())).willReturn(Optional.of(empty));
+
+		var result = topicService.feed(agitUuid, empty.getTopicUuid(), null, 1, 1);
+
+		assertThat(result.getCurrent()).isNull();
+		assertThat(result.getBefore()).isEmpty();
+		assertThat(result.getAfter()).isEmpty();
+	}
+
+	private static Topic topicWithVideo(UUID agitUuid, String title, LocalDateTime startAt) {
+		return Topic.create(agitUuid, UUID.randomUUID(), title, startAt).attachVideo(UUID.randomUUID(), UUID.randomUUID());
 	}
 
 	@Test
@@ -124,14 +234,15 @@ class TopicServiceTest {
 		UUID agitUuid = UUID.randomUUID();
 		UUID creatorUuid = UUID.randomUUID();
 		LocalDateTime startAt = LocalDateTime.of(2026, 8, 18, 0, 0);
+		given(agitMembershipPort.findActiveMember(agitUuid, "Bearer test"))
+				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
 		given(topicPersistencePort.save(any(Topic.class))).willAnswer(invocation -> invocation.getArgument(0));
 
 		var result = topicService.create(CreateTopicRequestDto.builder()
 				.agitUuid(agitUuid)
-				.creatorUuid(creatorUuid)
 				.title("점심 메뉴")
 				.startAt(startAt)
-				.build());
+				.build(), creatorUuid, "Bearer test");
 
 		assertThat(result.getTopicUuid()).isNotNull();
 		assertThat(result.getAgitUuid()).isEqualTo(agitUuid);
@@ -149,21 +260,32 @@ class TopicServiceTest {
 	@Test
 	void create_requiresAgitUuid() {
 		assertThatThrownBy(() -> topicService.create(CreateTopicRequestDto.builder()
-				.creatorUuid(UUID.randomUUID())
 				.title("제목")
-				.build()))
+				.build(), UUID.randomUUID(), "Bearer test"))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("agitUuid는 필수입니다.");
 	}
 
 	@Test
-	void create_requiresCreatorUuid() {
+	void create_requiresActor() {
 		assertThatThrownBy(() -> topicService.create(CreateTopicRequestDto.builder()
 				.agitUuid(UUID.randomUUID())
 				.title("제목")
-				.build()))
-				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessage("creatorUuid는 필수입니다.");
+				.build(), null, "Bearer test"))
+				.isInstanceOf(UnauthenticatedActorException.class);
+	}
+
+	@Test
+	void create_forbidsNonMember() {
+		UUID agitUuid = UUID.randomUUID();
+		given(agitMembershipPort.findActiveMember(agitUuid, "Bearer test")).willReturn(Optional.empty());
+
+		assertThatThrownBy(() -> topicService.create(CreateTopicRequestDto.builder()
+				.agitUuid(agitUuid)
+				.title("제목")
+				.build(), UUID.randomUUID(), "Bearer test"))
+				.isInstanceOf(ForbiddenActorException.class);
+		verify(topicPersistencePort, never()).save(any(Topic.class));
 	}
 
 	@Test
@@ -179,7 +301,7 @@ class TopicServiceTest {
 
 		var result = topicService.update(existing.getTopicUuid(), UpdateTopicRequestDto.builder()
 				.title("저녁 메뉴")
-				.build());
+				.build(), existing.getCreatorUuid(), "Bearer test");
 
 		assertThat(result.getTitle()).isEqualTo("저녁 메뉴");
 		assertThat(result.getStartAt()).isEqualTo(existing.getStartAt());
@@ -189,6 +311,47 @@ class TopicServiceTest {
 		verify(topicViewerSnapshotPort, never()).delete(any());
 		verify(topicAgitSyncEventPort).publishBoundAndStarted(any(Topic.class));
 		verify(topicCreatedEventPort, never()).publishCreated(any(Topic.class));
+		verify(agitMembershipPort, never()).findActiveMember(any(), any());
+	}
+
+	@Test
+	void update_allowsHostWhoIsNotCreator() {
+		Topic existing = Topic.create(
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				"점심 메뉴",
+				LocalDateTime.of(2026, 8, 18, 0, 0)
+		);
+		UUID hostUuid = UUID.randomUUID();
+		given(topicPersistencePort.findByTopicUuid(existing.getTopicUuid())).willReturn(Optional.of(existing));
+		given(topicPersistencePort.update(any(Topic.class))).willAnswer(invocation -> invocation.getArgument(0));
+		given(agitMembershipPort.findActiveMember(existing.getAgitUuid(), "Bearer test"))
+				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.HOST)));
+
+		var result = topicService.update(existing.getTopicUuid(), UpdateTopicRequestDto.builder()
+				.title("저녁 메뉴")
+				.build(), hostUuid, "Bearer test");
+
+		assertThat(result.getTitle()).isEqualTo("저녁 메뉴");
+	}
+
+	@Test
+	void update_forbidsGuestWhoIsNotCreator() {
+		Topic existing = Topic.create(
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				"점심 메뉴",
+				LocalDateTime.of(2026, 8, 18, 0, 0)
+		);
+		given(topicPersistencePort.findByTopicUuid(existing.getTopicUuid())).willReturn(Optional.of(existing));
+		given(agitMembershipPort.findActiveMember(existing.getAgitUuid(), "Bearer test"))
+				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
+
+		assertThatThrownBy(() -> topicService.update(existing.getTopicUuid(), UpdateTopicRequestDto.builder()
+				.title("저녁 메뉴")
+				.build(), UUID.randomUUID(), "Bearer test"))
+				.isInstanceOf(ForbiddenActorException.class);
+		verify(topicPersistencePort, never()).update(any(Topic.class));
 	}
 
 	@Test
@@ -198,7 +361,7 @@ class TopicServiceTest {
 
 		assertThatThrownBy(() -> topicService.update(topicUuid, UpdateTopicRequestDto.builder()
 				.title("제목")
-				.build()))
+				.build(), UUID.randomUUID(), "Bearer test"))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("토픽이 존재하지 않습니다.");
 		verify(topicAgitSyncEventPort, never()).publishBoundAndStarted(any(Topic.class));
@@ -211,11 +374,12 @@ class TopicServiceTest {
 		Topic existing = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", null);
 		given(topicPersistencePort.findByTopicUuid(existing.getTopicUuid())).willReturn(Optional.of(existing));
 
-		topicService.delete(existing.getTopicUuid());
+		topicService.delete(existing.getTopicUuid(), existing.getCreatorUuid(), "Bearer test");
 
 		verify(topicPersistencePort).deleteByTopicUuid(existing.getTopicUuid());
 		verify(topicViewerSnapshotPort).delete(existing.getTopicUuid());
 		verify(topicAgitSyncEventPort).publishUnbound(existing);
+		verify(agitMembershipPort, never()).findActiveMember(any(), any());
 	}
 
 	@Test
@@ -224,7 +388,7 @@ class TopicServiceTest {
 				.attachVideo(UUID.randomUUID(), UUID.randomUUID());
 		given(topicPersistencePort.findByTopicUuid(existing.getTopicUuid())).willReturn(Optional.of(existing));
 
-		assertThatThrownBy(() -> topicService.delete(existing.getTopicUuid()))
+		assertThatThrownBy(() -> topicService.delete(existing.getTopicUuid(), existing.getCreatorUuid(), "Bearer test"))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("영상이 있는 토픽은 삭제할 수 없습니다.");
 		verify(topicPersistencePort, never()).deleteByTopicUuid(existing.getTopicUuid());
@@ -238,7 +402,7 @@ class TopicServiceTest {
 		UUID topicUuid = UUID.randomUUID();
 		given(topicPersistencePort.findByTopicUuid(topicUuid)).willReturn(Optional.empty());
 
-		assertThatThrownBy(() -> topicService.delete(topicUuid))
+		assertThatThrownBy(() -> topicService.delete(topicUuid, UUID.randomUUID(), "Bearer test"))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("토픽이 존재하지 않습니다.");
 		verify(topicAgitSyncEventPort, never()).publishUnbound(any(Topic.class));

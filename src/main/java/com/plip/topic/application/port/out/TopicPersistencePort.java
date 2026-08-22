@@ -1,6 +1,7 @@
 package com.plip.topic.application.port.out;
 
 import com.plip.topic.domain.model.Topic;
+import com.plip.topic.domain.model.TopicListStatus;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -15,6 +16,18 @@ public interface TopicPersistencePort {
 	Optional<Topic> findByTopicUuid(UUID topicUuid);
 
 	List<Topic> findLatestByAgitUuid(UUID agitUuid, int limit);
+
+	List<Topic> findByAgitUuidAndListStatus(UUID agitUuid, TopicListStatus status, LocalDate today, int limit);
+
+	List<Topic> findFeedOngoingWithVideos(UUID agitUuid, LocalDate today);
+
+	List<Topic> findFeedPastFromStart(UUID agitUuid, LocalDate today, int limit);
+
+	List<Topic> findFeedPastOlderThan(UUID agitUuid, LocalDate today, Topic current, int limit);
+
+	List<Topic> findFeedPastNewerThan(UUID agitUuid, LocalDate today, Topic current, int limit);
+
+	Optional<Topic> findFeedAnchorOnDate(UUID agitUuid, LocalDate today, LocalDate date);
 
 	List<LocalDate> findActiveDates(UUID agitUuid, YearMonth yearMonth);
 

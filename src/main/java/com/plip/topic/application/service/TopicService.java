@@ -1,21 +1,28 @@
 package com.plip.topic.application.service;
 
+import com.plip.topic.application.exception.ForbiddenActorException;
+import com.plip.topic.application.exception.UnauthenticatedActorException;
 import com.plip.topic.application.port.in.CreateTopicUseCase;
 import com.plip.topic.application.port.in.DeleteTopicUseCase;
 import com.plip.topic.application.port.in.GetTopicCalendarUseCase;
+import com.plip.topic.application.port.in.GetTopicFeedUseCase;
 import com.plip.topic.application.port.in.GetTopicUseCase;
 import com.plip.topic.application.port.in.ListTopicsUseCase;
 import com.plip.topic.application.port.in.UpdateTopicUseCase;
 import com.plip.topic.application.port.in.dto.CreateTopicRequestDto;
 import com.plip.topic.application.port.in.dto.TopicCalendarResult;
+import com.plip.topic.application.port.in.dto.TopicFeedResult;
 import com.plip.topic.application.port.in.dto.TopicResult;
 import com.plip.topic.application.port.in.dto.UpdateTopicRequestDto;
+import com.plip.topic.application.port.out.AgitMembership;
+import com.plip.topic.application.port.out.AgitMembershipPort;
 import com.plip.topic.application.port.out.TopicAgitSyncEventPort;
 import com.plip.topic.application.port.out.TopicCreatedEventPort;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
 import com.plip.topic.application.port.out.TopicViewerSnapshotPort;
 import com.plip.topic.domain.model.Topic;
+import com.plip.topic.domain.model.TopicListStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,7 +31,10 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,22 +42,33 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopicCalendarUseCase, CreateTopicUseCase, UpdateTopicUseCase, DeleteTopicUseCase {
+public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopicFeedUseCase, GetTopicCalendarUseCase, CreateTopicUseCase, UpdateTopicUseCase, DeleteTopicUseCase {
 
 	private static final int LATEST_LIMIT = 10;
+	private static final int DEFAULT_LIST_LIMIT = 10;
+	private static final int MAX_LIST_LIMIT = 20;
+	private static final int DEFAULT_FEED_NEIGHBORS = 1;
+	private static final int MAX_FEED_NEIGHBORS = 3;
+	private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
 	private final TopicPersistencePort topicPersistencePort;
 	private final TopicReadCachePort topicReadCachePort;
 	private final TopicViewerSnapshotPort topicViewerSnapshotPort;
 	private final TopicCreatedEventPort topicCreatedEventPort;
 	private final TopicAgitSyncEventPort topicAgitSyncEventPort;
+	private final AgitMembershipPort agitMembershipPort;
 
 	@Override
 	@Transactional
-	public TopicResult create(CreateTopicRequestDto request) {
+	public TopicResult create(CreateTopicRequestDto request, UUID actorUuid, String authorization) {
+		requireActor(actorUuid);
+		if (request.getAgitUuid() == null) {
+			throw new IllegalArgumentException("agitUuid는 필수입니다.");
+		}
+		requireActiveMember(request.getAgitUuid(), authorization);
 		Topic saved = topicPersistencePort.save(Topic.create(
 				request.getAgitUuid(),
-				request.getCreatorUuid(),
+				actorUuid,
 				request.getTitle(),
 				request.getStartAt()
 		));
@@ -59,12 +80,14 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 
 	@Override
 	@Transactional
-	public TopicResult update(UUID topicUuid, UpdateTopicRequestDto request) {
+	public TopicResult update(UUID topicUuid, UpdateTopicRequestDto request, UUID actorUuid, String authorization) {
 		if (topicUuid == null) {
 			throw new IllegalArgumentException("topicUuid는 필수입니다.");
 		}
+		requireActor(actorUuid);
 		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
+		requireCreatorOrHost(topic, actorUuid, authorization);
 		LocalDate oldDay = topic.getStartAt().toLocalDate();
 		Topic updated = topic.update(request.getTitle(), request.getStartAt());
 		Topic saved = topicPersistencePort.update(updated);
@@ -85,12 +108,14 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 
 	@Override
 	@Transactional
-	public void delete(UUID topicUuid) {
+	public void delete(UUID topicUuid, UUID actorUuid, String authorization) {
 		if (topicUuid == null) {
 			throw new IllegalArgumentException("topicUuid는 필수입니다.");
 		}
+		requireActor(actorUuid);
 		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
+		requireCreatorOrHost(topic, actorUuid, authorization);
 		topic.assertDeletable();
 		topicPersistencePort.deleteByTopicUuid(topicUuid);
 		topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
@@ -111,6 +136,147 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 					topicReadCachePort.putLatestTopics(agitUuid, results);
 					return results;
 				});
+	}
+
+	@Override
+	public List<TopicResult> listByAgitUuidAndStatus(UUID agitUuid, TopicListStatus status, Integer limit) {
+		if (agitUuid == null) {
+			throw new IllegalArgumentException("agitUuid는 필수입니다.");
+		}
+		if (status == null) {
+			throw new IllegalArgumentException("status는 필수입니다.");
+		}
+		LocalDate today = LocalDate.now(KST);
+		return topicPersistencePort.findByAgitUuidAndListStatus(agitUuid, status, today, resolveListLimit(limit)).stream()
+				.map(TopicResult::from)
+				.toList();
+	}
+
+	@Override
+	public TopicFeedResult feed(UUID agitUuid, UUID topicUuid, LocalDate date, Integer before, Integer after) {
+		if (agitUuid == null) {
+			throw new IllegalArgumentException("agitUuid는 필수입니다.");
+		}
+		if ((topicUuid == null) == (date == null)) {
+			throw new IllegalArgumentException("topicUuid 또는 date 중 하나만 필요합니다.");
+		}
+		LocalDate today = LocalDate.now(KST);
+		int beforeCount = resolveFeedNeighbors(before);
+		int afterCount = resolveFeedNeighbors(after);
+		Topic current = topicUuid != null
+				? resolveFeedCurrentByTopic(agitUuid, topicUuid, today)
+				: topicPersistencePort.findFeedAnchorOnDate(agitUuid, today, date).orElse(null);
+		if (current == null) {
+			return TopicFeedResult.empty();
+		}
+		return neighborsOf(agitUuid, today, current, beforeCount, afterCount);
+	}
+
+	private Topic resolveFeedCurrentByTopic(UUID agitUuid, UUID topicUuid, LocalDate today) {
+		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
+				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
+		if (!agitUuid.equals(topic.getAgitUuid())) {
+			throw new IllegalArgumentException("agitUuid가 토픽과 일치하지 않습니다.");
+		}
+		if (topic.videoCount() == 0 || !isInFeedWindow(topic, today)) {
+			return null;
+		}
+		return topic;
+	}
+
+	private boolean isInFeedWindow(Topic topic, LocalDate today) {
+		LocalDateTime nextDayStart = today.plusDays(1).atStartOfDay();
+		return topic.getStartAt() != null && topic.getStartAt().isBefore(nextDayStart);
+	}
+
+	private TopicFeedResult neighborsOf(
+			UUID agitUuid,
+			LocalDate today,
+			Topic current,
+			int beforeCount,
+			int afterCount
+	) {
+		List<Topic> ongoing = topicPersistencePort.findFeedOngoingWithVideos(agitUuid, today);
+		int ongoingIndex = indexOf(ongoing, current.getTopicUuid());
+		List<Topic> before = new ArrayList<>();
+		List<Topic> after = new ArrayList<>();
+		if (ongoingIndex >= 0) {
+			for (int i = ongoingIndex - 1; i >= 0 && before.size() < beforeCount; i--) {
+				before.add(ongoing.get(i));
+			}
+			for (int i = ongoingIndex + 1; i < ongoing.size() && after.size() < afterCount; i++) {
+				after.add(ongoing.get(i));
+			}
+			if (after.size() < afterCount) {
+				after.addAll(topicPersistencePort.findFeedPastFromStart(agitUuid, today, afterCount - after.size()));
+			}
+		} else {
+			before.addAll(topicPersistencePort.findFeedPastNewerThan(agitUuid, today, current, beforeCount));
+			if (before.size() < beforeCount) {
+				for (int i = ongoing.size() - 1; i >= 0 && before.size() < beforeCount; i--) {
+					before.add(ongoing.get(i));
+				}
+			}
+			after.addAll(topicPersistencePort.findFeedPastOlderThan(agitUuid, today, current, afterCount));
+		}
+		return TopicFeedResult.builder()
+				.current(TopicResult.from(current))
+				.before(before.stream().map(TopicResult::from).toList())
+				.after(after.stream().map(TopicResult::from).toList())
+				.build();
+	}
+
+	private static int indexOf(List<Topic> topics, UUID topicUuid) {
+		for (int i = 0; i < topics.size(); i++) {
+			if (topics.get(i).getTopicUuid().equals(topicUuid)) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	private void requireActor(UUID actorUuid) {
+		if (actorUuid == null) {
+			throw new UnauthenticatedActorException();
+		}
+	}
+
+	private void requireActiveMember(UUID agitUuid, String authorization) {
+		requireAuthorization(authorization);
+		agitMembershipPort.findActiveMember(agitUuid, authorization)
+				.orElseThrow(ForbiddenActorException::new);
+	}
+
+	private void requireCreatorOrHost(Topic topic, UUID actorUuid, String authorization) {
+		if (actorUuid.equals(topic.getCreatorUuid())) {
+			return;
+		}
+		requireAuthorization(authorization);
+		AgitMembership membership = agitMembershipPort.findActiveMember(topic.getAgitUuid(), authorization)
+				.orElseThrow(ForbiddenActorException::new);
+		if (!membership.isHost()) {
+			throw new ForbiddenActorException();
+		}
+	}
+
+	private void requireAuthorization(String authorization) {
+		if (authorization == null || authorization.isBlank()) {
+			throw new UnauthenticatedActorException();
+		}
+	}
+
+	private int resolveListLimit(Integer limit) {
+		if (limit == null) {
+			return DEFAULT_LIST_LIMIT;
+		}
+		return Math.min(MAX_LIST_LIMIT, Math.max(1, limit));
+	}
+
+	private int resolveFeedNeighbors(Integer count) {
+		if (count == null) {
+			return DEFAULT_FEED_NEIGHBORS;
+		}
+		return Math.min(MAX_FEED_NEIGHBORS, Math.max(0, count));
 	}
 
 	@Override
