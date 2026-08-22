@@ -1,5 +1,10 @@
 package com.plip.topic.application.service;
 
+import com.plip.topic.application.exception.ForbiddenActorException;
+import com.plip.topic.application.exception.UnauthenticatedActorException;
+import com.plip.topic.application.port.out.AgitMemberRole;
+import com.plip.topic.application.port.out.AgitMembership;
+import com.plip.topic.application.port.out.AgitMembershipPort;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
 import com.plip.topic.application.port.out.TopicVideoEventPort;
@@ -37,6 +42,9 @@ class TopicVideoServiceTest {
 
 	@Mock
 	private TopicVideoEventPort topicVideoEventPort;
+
+	@Mock
+	private AgitMembershipPort agitMembershipPort;
 
 	@InjectMocks
 	private TopicVideoService topicVideoService;
@@ -76,7 +84,8 @@ class TopicVideoServiceTest {
 		UUID topicUuid = UUID.randomUUID();
 		given(topicPersistencePort.findByTopicUuid(topicUuid)).willReturn(Optional.empty());
 
-		assertThatThrownBy(() -> topicVideoService.attachOrThrow(topicUuid, UUID.randomUUID(), UUID.randomUUID()))
+		assertThatThrownBy(() -> topicVideoService.attachOrThrow(
+				topicUuid, UUID.randomUUID(), UUID.randomUUID(), "Bearer test"))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("토픽이 존재하지 않습니다.");
 	}
@@ -89,9 +98,11 @@ class TopicVideoServiceTest {
 		Topic withVideo = topic.attachVideo(userUuid, videoUuid);
 		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid()))
 				.willReturn(Optional.of(topic), Optional.of(withVideo));
+		given(agitMembershipPort.findActiveMember(topic.getAgitUuid(), "Bearer test"))
+				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
 		given(topicPersistencePort.addVideoIfAbsent(topic.getTopicUuid(), videoUuid, userUuid)).willReturn(true);
 
-		assertThat(topicVideoService.attachOrThrow(topic.getTopicUuid(), videoUuid, userUuid)).isTrue();
+		assertThat(topicVideoService.attachOrThrow(topic.getTopicUuid(), videoUuid, userUuid, "Bearer test")).isTrue();
 		verify(topicVideoEventPort).publishAttached(topic.getTopicUuid(), topic.getAgitUuid(), videoUuid, userUuid);
 	}
 
@@ -101,10 +112,31 @@ class TopicVideoServiceTest {
 		UUID videoUuid = UUID.randomUUID();
 		UUID userUuid = UUID.randomUUID();
 		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
+		given(agitMembershipPort.findActiveMember(topic.getAgitUuid(), "Bearer test"))
+				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
 		given(topicPersistencePort.addVideoIfAbsent(topic.getTopicUuid(), videoUuid, userUuid)).willReturn(false);
 
-		assertThat(topicVideoService.attachOrThrow(topic.getTopicUuid(), videoUuid, userUuid)).isFalse();
+		assertThat(topicVideoService.attachOrThrow(topic.getTopicUuid(), videoUuid, userUuid, "Bearer test")).isFalse();
 		verify(topicVideoEventPort, never()).publishAttached(any(), any(), any(), any());
+	}
+
+	@Test
+	void attachOrThrow_forbidsNonMember() {
+		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
+		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
+		given(agitMembershipPort.findActiveMember(topic.getAgitUuid(), "Bearer test")).willReturn(Optional.empty());
+
+		assertThatThrownBy(() -> topicVideoService.attachOrThrow(
+				topic.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID(), "Bearer test"))
+				.isInstanceOf(ForbiddenActorException.class);
+		verify(topicPersistencePort, never()).addVideoIfAbsent(any(), any(), any());
+	}
+
+	@Test
+	void attachOrThrow_requiresActor() {
+		assertThatThrownBy(() -> topicVideoService.attachOrThrow(
+				UUID.randomUUID(), UUID.randomUUID(), null, "Bearer test"))
+				.isInstanceOf(UnauthenticatedActorException.class);
 	}
 
 	@Test

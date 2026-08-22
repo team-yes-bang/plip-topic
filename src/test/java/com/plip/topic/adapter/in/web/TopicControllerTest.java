@@ -6,8 +6,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -34,6 +36,14 @@ class TopicControllerTest {
 
 	@Autowired
 	private TopicPersistencePort topicPersistencePort;
+
+	private static RequestPostProcessor actor(UUID userUuid) {
+		return request -> {
+			request.addHeader("X-User-UUID", userUuid.toString());
+			request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer test");
+			return request;
+		};
+	}
 
 	@Test
 	void list_returnsLatestTopicsByStartAt() throws Exception {
@@ -64,7 +74,7 @@ class TopicControllerTest {
 
 		mockMvc.perform(get("/api/v1/topics")
 						.param("agitUuid", agitUuid.toString())
-						.param("userUuid", userUuid.toString()))
+						.with(actor(userUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(2))
 				.andExpect(jsonPath("$[0].title").value("최근 모임"))
@@ -226,15 +236,15 @@ class TopicControllerTest {
 		UUID creatorUuid = UUID.randomUUID();
 
 		mockMvc.perform(post("/api/v1/topics")
+						.with(actor(creatorUuid))
 						.contentType(APPLICATION_JSON)
 						.content("""
 								{
 								  "agitUuid": "%s",
-								  "creatorUuid": "%s",
 								  "title": "점심 메뉴",
 								  "startAt": "2026-08-18T00:00:00"
 								}
-								""".formatted(agitUuid, creatorUuid)))
+								""".formatted(agitUuid)))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.topicUuid").exists())
 				.andExpect(jsonPath("$.agitUuid").value(agitUuid.toString()))
@@ -257,13 +267,13 @@ class TopicControllerTest {
 		UUID userUuid = UUID.randomUUID();
 
 		mockMvc.perform(post("/api/v1/topics/{topicUuid}/videos", saved.getTopicUuid())
+						.with(actor(userUuid))
 						.contentType(APPLICATION_JSON)
 						.content("""
 								{
-								  "videoUuid": "%s",
-								  "userUuid": "%s"
+								  "videoUuid": "%s"
 								}
-								""".formatted(videoUuid, userUuid)))
+								""".formatted(videoUuid)))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.videoUuid").value(videoUuid.toString()))
 				.andExpect(jsonPath("$.userUuid").value(userUuid.toString()));
@@ -286,13 +296,13 @@ class TopicControllerTest {
 		topicPersistencePort.addVideoIfAbsent(saved.getTopicUuid(), UUID.randomUUID(), userUuid);
 
 		mockMvc.perform(post("/api/v1/topics/{topicUuid}/videos", saved.getTopicUuid())
+						.with(actor(userUuid))
 						.contentType(APPLICATION_JSON)
 						.content("""
 								{
-								  "videoUuid": "%s",
-								  "userUuid": "%s"
+								  "videoUuid": "%s"
 								}
-								""".formatted(UUID.randomUUID(), userUuid)))
+								""".formatted(UUID.randomUUID())))
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.message").value("이미 이 토픽에 영상을 올렸습니다."));
 	}
@@ -310,7 +320,7 @@ class TopicControllerTest {
 		topicPersistencePort.addVideoIfAbsent(saved.getTopicUuid(), videoUuid, userUuid);
 
 		mockMvc.perform(delete("/api/v1/topics/{topicUuid}/videos/{videoUuid}", saved.getTopicUuid(), videoUuid)
-						.param("userUuid", userUuid.toString()))
+						.with(actor(userUuid)))
 				.andExpect(status().isNoContent());
 
 		mockMvc.perform(get("/api/v1/topics/{topicUuid}/videos", saved.getTopicUuid()))
@@ -321,13 +331,13 @@ class TopicControllerTest {
 	@Test
 	void create_requiresAgitUuid() throws Exception {
 		mockMvc.perform(post("/api/v1/topics")
+						.with(actor(UUID.randomUUID()))
 						.contentType(APPLICATION_JSON)
 						.content("""
 								{
-								  "creatorUuid": "%s",
 								  "title": "제목"
 								}
-								""".formatted(UUID.randomUUID())))
+								"""))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value("agitUuid는 필수입니다."));
 	}
@@ -342,6 +352,7 @@ class TopicControllerTest {
 		));
 
 		mockMvc.perform(patch("/api/v1/topics/{topicUuid}", saved.getTopicUuid())
+						.with(actor(saved.getCreatorUuid()))
 						.contentType(APPLICATION_JSON)
 						.content("""
 								{
@@ -358,6 +369,7 @@ class TopicControllerTest {
 	@Test
 	void update_returnsBadRequestWhenMissing() throws Exception {
 		mockMvc.perform(patch("/api/v1/topics/{topicUuid}", UUID.randomUUID())
+						.with(actor(UUID.randomUUID()))
 						.contentType(APPLICATION_JSON)
 						.content("""
 								{
@@ -377,7 +389,8 @@ class TopicControllerTest {
 				null
 		));
 
-		mockMvc.perform(delete("/api/v1/topics/{topicUuid}", saved.getTopicUuid()))
+		mockMvc.perform(delete("/api/v1/topics/{topicUuid}", saved.getTopicUuid())
+						.with(actor(saved.getCreatorUuid())))
 				.andExpect(status().isNoContent());
 
 		mockMvc.perform(get("/api/v1/topics")
@@ -422,15 +435,31 @@ class TopicControllerTest {
 		));
 		topicPersistencePort.addVideoIfAbsent(saved.getTopicUuid(), UUID.randomUUID(), UUID.randomUUID());
 
-		mockMvc.perform(delete("/api/v1/topics/{topicUuid}", saved.getTopicUuid()))
+		mockMvc.perform(delete("/api/v1/topics/{topicUuid}", saved.getTopicUuid())
+						.with(actor(saved.getCreatorUuid())))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value("영상이 있는 토픽은 삭제할 수 없습니다."));
 	}
 
 	@Test
 	void delete_returnsBadRequestWhenMissing() throws Exception {
-		mockMvc.perform(delete("/api/v1/topics/{topicUuid}", UUID.randomUUID()))
+		mockMvc.perform(delete("/api/v1/topics/{topicUuid}", UUID.randomUUID())
+						.with(actor(UUID.randomUUID())))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value("토픽이 존재하지 않습니다."));
+	}
+
+	@Test
+	void create_returnsUnauthorizedWithoutActor() throws Exception {
+		mockMvc.perform(post("/api/v1/topics")
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "agitUuid": "%s",
+								  "title": "제목"
+								}
+								""".formatted(UUID.randomUUID())))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.message").value("인증된 사용자가 없습니다."));
 	}
 }
