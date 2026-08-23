@@ -60,12 +60,12 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 
 	@Override
 	@Transactional
-	public TopicResult create(CreateTopicRequestDto request, UUID actorUuid, String authorization) {
+	public TopicResult create(CreateTopicRequestDto request, UUID actorUuid) {
 		requireActor(actorUuid);
 		if (request.getAgitUuid() == null) {
 			throw new IllegalArgumentException("agitUuid는 필수입니다.");
 		}
-		requireActiveMember(request.getAgitUuid(), authorization);
+		requireActiveMember(request.getAgitUuid(), actorUuid);
 		Topic saved = topicPersistencePort.save(Topic.create(
 				request.getAgitUuid(),
 				actorUuid,
@@ -80,14 +80,14 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 
 	@Override
 	@Transactional
-	public TopicResult update(UUID topicUuid, UpdateTopicRequestDto request, UUID actorUuid, String authorization) {
+	public TopicResult update(UUID topicUuid, UpdateTopicRequestDto request, UUID actorUuid) {
 		if (topicUuid == null) {
 			throw new IllegalArgumentException("topicUuid는 필수입니다.");
 		}
 		requireActor(actorUuid);
 		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
-		requireCreatorOrHost(topic, actorUuid, authorization);
+		requireCreatorOrHost(topic, actorUuid);
 		LocalDate oldDay = topic.getStartAt().toLocalDate();
 		Topic updated = topic.update(request.getTitle(), request.getStartAt());
 		Topic saved = topicPersistencePort.update(updated);
@@ -102,20 +102,22 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 	}
 
 	@Override
-	public TopicResult get(UUID topicUuid) {
-		return TopicResult.from(loadForRead(topicUuid));
+	public TopicResult get(UUID topicUuid, UUID actorUuid) {
+		Topic topic = loadForRead(topicUuid);
+		requireActiveMember(topic.getAgitUuid(), actorUuid);
+		return TopicResult.from(topic);
 	}
 
 	@Override
 	@Transactional
-	public void delete(UUID topicUuid, UUID actorUuid, String authorization) {
+	public void delete(UUID topicUuid, UUID actorUuid) {
 		if (topicUuid == null) {
 			throw new IllegalArgumentException("topicUuid는 필수입니다.");
 		}
 		requireActor(actorUuid);
 		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
-		requireCreatorOrHost(topic, actorUuid, authorization);
+		requireCreatorOrHost(topic, actorUuid);
 		topic.assertDeletable();
 		topicPersistencePort.deleteByTopicUuid(topicUuid);
 		topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
@@ -124,10 +126,11 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 	}
 
 	@Override
-	public List<TopicResult> listLatestByAgitUuid(UUID agitUuid) {
+	public List<TopicResult> listLatestByAgitUuid(UUID agitUuid, UUID actorUuid) {
 		if (agitUuid == null) {
 			throw new IllegalArgumentException("agitUuid는 필수입니다.");
 		}
+		requireActiveMember(agitUuid, actorUuid);
 		return topicReadCachePort.getLatestTopics(agitUuid)
 				.orElseGet(() -> {
 					List<TopicResult> results = topicPersistencePort.findLatestByAgitUuid(agitUuid, LATEST_LIMIT).stream()
@@ -139,13 +142,14 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 	}
 
 	@Override
-	public List<TopicResult> listByAgitUuidAndStatus(UUID agitUuid, TopicListStatus status, Integer limit) {
+	public List<TopicResult> listByAgitUuidAndStatus(UUID agitUuid, TopicListStatus status, Integer limit, UUID actorUuid) {
 		if (agitUuid == null) {
 			throw new IllegalArgumentException("agitUuid는 필수입니다.");
 		}
 		if (status == null) {
 			throw new IllegalArgumentException("status는 필수입니다.");
 		}
+		requireActiveMember(agitUuid, actorUuid);
 		LocalDate today = LocalDate.now(KST);
 		return topicPersistencePort.findByAgitUuidAndListStatus(agitUuid, status, today, resolveListLimit(limit)).stream()
 				.map(TopicResult::from)
@@ -153,13 +157,14 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 	}
 
 	@Override
-	public TopicFeedResult feed(UUID agitUuid, UUID topicUuid, LocalDate date, Integer before, Integer after) {
+	public TopicFeedResult feed(UUID agitUuid, UUID topicUuid, LocalDate date, Integer before, Integer after, UUID actorUuid) {
 		if (agitUuid == null) {
 			throw new IllegalArgumentException("agitUuid는 필수입니다.");
 		}
 		if ((topicUuid == null) == (date == null)) {
 			throw new IllegalArgumentException("topicUuid 또는 date 중 하나만 필요합니다.");
 		}
+		requireActiveMember(agitUuid, actorUuid);
 		LocalDate today = LocalDate.now(KST);
 		int beforeCount = resolveFeedNeighbors(before);
 		int afterCount = resolveFeedNeighbors(after);
@@ -241,28 +246,18 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 		}
 	}
 
-	private void requireActiveMember(UUID agitUuid, String authorization) {
-		requireAuthorization(authorization);
-		agitMembershipPort.findActiveMember(agitUuid, authorization)
+	private AgitMembership requireActiveMember(UUID agitUuid, UUID actorUuid) {
+		requireActor(actorUuid);
+		return agitMembershipPort.findActiveMember(agitUuid, actorUuid)
 				.orElseThrow(ForbiddenActorException::new);
 	}
 
-	private void requireCreatorOrHost(Topic topic, UUID actorUuid, String authorization) {
-		if (actorUuid.equals(topic.getCreatorUuid())) {
+	private void requireCreatorOrHost(Topic topic, UUID actorUuid) {
+		AgitMembership membership = requireActiveMember(topic.getAgitUuid(), actorUuid);
+		if (actorUuid.equals(topic.getCreatorUuid()) || membership.isHost()) {
 			return;
 		}
-		requireAuthorization(authorization);
-		AgitMembership membership = agitMembershipPort.findActiveMember(topic.getAgitUuid(), authorization)
-				.orElseThrow(ForbiddenActorException::new);
-		if (!membership.isHost()) {
-			throw new ForbiddenActorException();
-		}
-	}
-
-	private void requireAuthorization(String authorization) {
-		if (authorization == null || authorization.isBlank()) {
-			throw new UnauthenticatedActorException();
-		}
+		throw new ForbiddenActorException();
 	}
 
 	private int resolveListLimit(Integer limit) {
@@ -280,13 +275,14 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 	}
 
 	@Override
-	public TopicCalendarResult getCalendar(UUID agitUuid, YearMonth yearMonth) {
+	public TopicCalendarResult getCalendar(UUID agitUuid, YearMonth yearMonth, UUID actorUuid) {
 		if (agitUuid == null) {
 			throw new IllegalArgumentException("agitUuid는 필수입니다.");
 		}
 		if (yearMonth == null) {
 			throw new IllegalArgumentException("yearMonth는 필수입니다.");
 		}
+		requireActiveMember(agitUuid, actorUuid);
 		List<LocalDate> activeDates = topicReadCachePort.getCalendar(agitUuid, yearMonth)
 				.orElseGet(() -> {
 					List<LocalDate> dates = topicPersistencePort.findActiveDates(agitUuid, yearMonth);

@@ -7,5 +7,5 @@ import java.util.UUID;
 
 public interface ListTopicVideosUseCase {
 
-	List<TopicVideoResult> list(UUID topicUuid);
+	List<TopicVideoResult> list(UUID topicUuid, UUID actorUuid);
 }

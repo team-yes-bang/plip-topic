@@ -7,5 +7,5 @@ import java.util.UUID;
 
 public interface GetTopicCalendarUseCase {
 
-	TopicCalendarResult getCalendar(UUID agitUuid, YearMonth yearMonth);
+	TopicCalendarResult getCalendar(UUID agitUuid, YearMonth yearMonth, UUID actorUuid);
 }

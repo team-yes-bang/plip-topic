@@ -5,5 +5,5 @@ import java.util.UUID;
 
 public interface AgitMembershipPort {
 
-	Optional<AgitMembership> findActiveMember(UUID agitUuid, String authorization);
+	Optional<AgitMembership> findActiveMember(UUID agitUuid, UUID userUuid);
 }

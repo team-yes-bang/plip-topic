@@ -31,6 +31,8 @@ services:
       - plip-net
 
   redis:
+    # 멤버십 Hash는 agit와 동일 Redis여야 한다. 이 서비스 compose의 plip-topic-redis는 조회 캐시 기본값이며
+    # 강제 통합하지 않는다. agit와 붙일 때는 REDIS_HOST/REDIS_PORT를 agit Redis에 맞춘다.
     image: redis:7-alpine
     container_name: plip-topic-redis
     restart: unless-stopped

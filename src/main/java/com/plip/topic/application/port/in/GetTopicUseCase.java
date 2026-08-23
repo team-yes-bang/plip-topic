@@ -6,5 +6,5 @@ import java.util.UUID;
 
 public interface GetTopicUseCase {
 
-	TopicResult get(UUID topicUuid);
+	TopicResult get(UUID topicUuid, UUID actorUuid);
 }

@@ -7,5 +7,5 @@ import java.util.UUID;
 
 public interface CreateTopicUseCase {
 
-	TopicResult create(CreateTopicRequestDto request, UUID actorUuid, String authorization);
+	TopicResult create(CreateTopicRequestDto request, UUID actorUuid);
 }

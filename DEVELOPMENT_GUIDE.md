@@ -98,3 +98,5 @@ src/main/java/com/plip/{service}/
 6. Entity에는 Lombok `@Data`를 쓰지 않습니다. `@Getter` + `@NoArgsConstructor(access = AccessLevel.PROTECTED)`를 사용합니다.
 
 Security, Redis, Kafka 등 추가 라이브러리는 **기능에 필요할 때만** `build.gradle`에 넣습니다. → START.md 6단계 참고
+
+토픽 읽기 캐시(`topic:latest:…`)와 agit 멤버십 Hash(`agit:{agitUuid}:members`, 필드 userUuid, 값 `HOST`|`GUEST`)는 **같은 Redis**를 사용합니다. 로컬에서 `plip-topic-redis`와 `plip-agit-redis`가 분리되어 있으면 HGET가 항상 miss가 되어 워밍이 반복되거나 503이 납니다. `REDIS_HOST`/`REDIS_PORT`를 agit와 맞추고, compose를 강제로 합치지는 않습니다(배포 계약). 키 미스 워밍은 agit **내부** `GET /internal/v1/agits/{agitUuid}/members` (`AGIT_INTERNAL_BASE_URL`)이며 게이트웨이로 올리지 않습니다.

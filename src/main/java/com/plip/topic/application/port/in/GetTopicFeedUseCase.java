@@ -7,5 +7,5 @@ import java.util.UUID;
 
 public interface GetTopicFeedUseCase {
 
-	TopicFeedResult feed(UUID agitUuid, UUID topicUuid, LocalDate date, Integer before, Integer after);
+	TopicFeedResult feed(UUID agitUuid, UUID topicUuid, LocalDate date, Integer before, Integer after, UUID actorUuid);
 }

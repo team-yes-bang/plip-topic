@@ -57,7 +57,7 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 
 	@Override
 	@Transactional
-	public boolean attachOrThrow(UUID topicUuid, UUID videoUuid, UUID actorUuid, String authorization) {
+	public boolean attachOrThrow(UUID topicUuid, UUID videoUuid, UUID actorUuid) {
 		if (topicUuid == null) {
 			throw new IllegalArgumentException("topicUuid는 필수입니다.");
 		}
@@ -67,13 +67,9 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 		if (actorUuid == null) {
 			throw new UnauthenticatedActorException();
 		}
-		if (authorization == null || authorization.isBlank()) {
-			throw new UnauthenticatedActorException();
-		}
 		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
-		agitMembershipPort.findActiveMember(topic.getAgitUuid(), authorization)
-				.orElseThrow(ForbiddenActorException::new);
+		requireActiveMember(topic.getAgitUuid(), actorUuid);
 		boolean attached = topicPersistencePort.addVideoIfAbsent(topicUuid, videoUuid, actorUuid);
 		if (attached) {
 			topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
@@ -87,14 +83,12 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 	@Override
 	@Transactional
 	public void detach(UUID topicUuid, UUID videoUuid, UUID userUuid) {
-		if (userUuid == null) {
-			throw new UnauthenticatedActorException();
-		}
 		if (topicUuid == null) {
 			throw new IllegalArgumentException("topicUuid는 필수입니다.");
 		}
 		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
+		requireActiveMember(topic.getAgitUuid(), userUuid);
 		topicPersistencePort.removeVideo(topicUuid, videoUuid, userUuid);
 		topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
 		Topic projected = topicPersistencePort.findByTopicUuid(topicUuid).orElse(topic);
@@ -102,10 +96,20 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 	}
 
 	@Override
-	public List<TopicVideoResult> list(UUID topicUuid) {
-		return loadForRead(topicUuid).getVideos().stream()
+	public List<TopicVideoResult> list(UUID topicUuid, UUID actorUuid) {
+		Topic topic = loadForRead(topicUuid);
+		requireActiveMember(topic.getAgitUuid(), actorUuid);
+		return topic.getVideos().stream()
 				.map(TopicVideoResult::from)
 				.toList();
+	}
+
+	private void requireActiveMember(UUID agitUuid, UUID actorUuid) {
+		if (actorUuid == null) {
+			throw new UnauthenticatedActorException();
+		}
+		agitMembershipPort.findActiveMember(agitUuid, actorUuid)
+				.orElseThrow(ForbiddenActorException::new);
 	}
 
 	private Topic loadForRead(UUID topicUuid) {
