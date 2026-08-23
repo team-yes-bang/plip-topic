@@ -1,7 +1,7 @@
 package com.plip.topic.global.config;
 
 import com.plip.topic.global.security.JwtAuthenticationEntryPoint;
-import com.plip.topic.global.security.JwtAuthenticationFilter;
+import com.plip.topic.global.security.UserUuidHeaderAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,7 +18,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-	private final JwtAuthenticationFilter jwtAuthenticationFilter;
+	private final UserUuidHeaderAuthenticationFilter userUuidHeaderAuthenticationFilter;
 	private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
 	@Bean
@@ -45,7 +45,10 @@ public class SecurityConfig {
 						.requestMatchers("/api/v1/topics", "/api/v1/topics/**").authenticated()
 						.anyRequest().permitAll()
 				)
-				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+				.addFilterBefore(
+						userUuidHeaderAuthenticationFilter,
+						UsernamePasswordAuthenticationFilter.class
+				);
 
 		return http.build();
 	}
