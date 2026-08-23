@@ -8,7 +8,7 @@ import java.util.UUID;
 
 public interface ListTopicsUseCase {
 
-	List<TopicResult> listLatestByAgitUuid(UUID agitUuid);
+	List<TopicResult> listLatestByAgitUuid(UUID agitUuid, UUID actorUuid);
 
-	List<TopicResult> listByAgitUuidAndStatus(UUID agitUuid, TopicListStatus status, Integer limit);
+	List<TopicResult> listByAgitUuidAndStatus(UUID agitUuid, TopicListStatus status, Integer limit, UUID actorUuid);
 }
