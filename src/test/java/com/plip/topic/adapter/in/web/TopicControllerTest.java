@@ -1,9 +1,8 @@
 package com.plip.topic.adapter.in.web;
 
-import com.plip.topic.adapter.out.security.JwtSigningKeys;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.domain.model.Topic;
-import io.jsonwebtoken.Jwts;
+import com.plip.topic.global.web.RequestHeaders;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -17,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Date;
 import java.util.UUID;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -34,8 +32,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class TopicControllerTest {
 
-	private static final String JWT_SECRET = "test-jwt-secret-key-for-unit-tests-only";
-
 	@Autowired
 	private MockMvc mockMvc;
 
@@ -44,21 +40,10 @@ class TopicControllerTest {
 
 	private static RequestPostProcessor actor(UUID userUuid) {
 		return request -> {
-			request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken(userUuid));
+			request.addHeader(RequestHeaders.USER_UUID_HEADER, userUuid.toString());
+			request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer test-gateway-token");
 			return request;
 		};
-	}
-
-	private static String accessToken(UUID userUuid) {
-		Date now = new Date();
-		return Jwts.builder()
-				.subject(userUuid.toString())
-				.claim("user_uuid", userUuid.toString())
-				.claim("tokenType", "access")
-				.issuedAt(now)
-				.expiration(new Date(now.getTime() + 3_600_000L))
-				.signWith(JwtSigningKeys.hmacSha256(JWT_SECRET))
-				.compact();
 	}
 
 	@Test
@@ -529,6 +514,6 @@ class TopicControllerTest {
 								""".formatted(UUID.randomUUID())))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value("ACCESS_TOKEN_INVALID"))
-				.andExpect(jsonPath("$.message").value("액세스 토큰이 유효하지 않습니다."));
+				.andExpect(jsonPath("$.message").value("인증이 필요합니다."));
 	}
 }

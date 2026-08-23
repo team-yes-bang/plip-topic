@@ -1,27 +1,21 @@
 package com.plip.topic.global.security;
 
-import com.plip.topic.application.port.out.AccessTokenPort;
+import com.plip.topic.global.web.RequestHeaders;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
-@RequiredArgsConstructor
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
-
-	private static final String BEARER_PREFIX = "Bearer ";
-
-	private final AccessTokenPort accessTokenPort;
+public class UserUuidHeaderAuthenticationFilter extends OncePerRequestFilter {
 
 	@Override
 	protected void doFilterInternal(
@@ -29,12 +23,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			HttpServletResponse response,
 			FilterChain filterChain
 	) throws ServletException, IOException {
-		String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
-		if (authorization != null && authorization.startsWith(BEARER_PREFIX)) {
-			String token = authorization.substring(BEARER_PREFIX.length()).trim();
-			accessTokenPort.parseAccessToken(token).ifPresent(this::authenticate);
+		String userUuidHeader = request.getHeader(RequestHeaders.USER_UUID_HEADER);
+		if (userUuidHeader != null && !userUuidHeader.isBlank()) {
+			parseUuid(userUuidHeader.trim()).ifPresent(this::authenticate);
 		}
 		filterChain.doFilter(request, response);
+	}
+
+	private Optional<UUID> parseUuid(String value) {
+		try {
+			return Optional.of(UUID.fromString(value));
+		} catch (IllegalArgumentException exception) {
+			return Optional.empty();
+		}
 	}
 
 	private void authenticate(UUID userUuid) {
