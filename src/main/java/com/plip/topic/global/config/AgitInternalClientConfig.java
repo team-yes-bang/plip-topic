@@ -11,16 +11,16 @@ import java.time.Duration;
 
 @Configuration
 @Profile("!test")
-@EnableConfigurationProperties(AgitGatewayProperties.class)
-public class AgitGatewayClientConfig {
+@EnableConfigurationProperties(AgitInternalProperties.class)
+public class AgitInternalClientConfig {
 
 	@Bean
-	RestClient agitGatewayRestClient(AgitGatewayProperties properties) {
+	RestClient agitInternalRestClient(AgitInternalProperties properties) {
 		SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
 		requestFactory.setConnectTimeout(Duration.ofSeconds(2));
 		requestFactory.setReadTimeout(Duration.ofSeconds(3));
 		return RestClient.builder()
-				.baseUrl(properties.getGatewayBaseUrl())
+				.baseUrl(properties.getInternalBaseUrl())
 				.requestFactory(requestFactory)
 				.build();
 	}

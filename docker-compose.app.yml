@@ -33,6 +33,6 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://eureka-server:8761/eureka/}
       EUREKA_INSTANCE_HOSTNAME: topic
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
-      AGIT_GATEWAY_BASE_URL: ${AGIT_GATEWAY_BASE_URL:-http://gateway:8000}
+      AGIT_INTERNAL_BASE_URL: ${AGIT_INTERNAL_BASE_URL:-http://agit:8080}
     networks:
       - plip-net

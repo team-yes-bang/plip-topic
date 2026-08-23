@@ -234,7 +234,7 @@ class TopicServiceTest {
 		UUID agitUuid = UUID.randomUUID();
 		UUID creatorUuid = UUID.randomUUID();
 		LocalDateTime startAt = LocalDateTime.of(2026, 8, 18, 0, 0);
-		given(agitMembershipPort.findActiveMember(agitUuid, "Bearer test"))
+		given(agitMembershipPort.findActiveMember(agitUuid, creatorUuid))
 				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
 		given(topicPersistencePort.save(any(Topic.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -278,12 +278,13 @@ class TopicServiceTest {
 	@Test
 	void create_forbidsNonMember() {
 		UUID agitUuid = UUID.randomUUID();
-		given(agitMembershipPort.findActiveMember(agitUuid, "Bearer test")).willReturn(Optional.empty());
+		UUID actorUuid = UUID.randomUUID();
+		given(agitMembershipPort.findActiveMember(agitUuid, actorUuid)).willReturn(Optional.empty());
 
 		assertThatThrownBy(() -> topicService.create(CreateTopicRequestDto.builder()
 				.agitUuid(agitUuid)
 				.title("제목")
-				.build(), UUID.randomUUID(), "Bearer test"))
+				.build(), actorUuid, "Bearer test"))
 				.isInstanceOf(ForbiddenActorException.class);
 		verify(topicPersistencePort, never()).save(any(Topic.class));
 	}
@@ -325,7 +326,7 @@ class TopicServiceTest {
 		UUID hostUuid = UUID.randomUUID();
 		given(topicPersistencePort.findByTopicUuid(existing.getTopicUuid())).willReturn(Optional.of(existing));
 		given(topicPersistencePort.update(any(Topic.class))).willAnswer(invocation -> invocation.getArgument(0));
-		given(agitMembershipPort.findActiveMember(existing.getAgitUuid(), "Bearer test"))
+		given(agitMembershipPort.findActiveMember(existing.getAgitUuid(), hostUuid))
 				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.HOST)));
 
 		var result = topicService.update(existing.getTopicUuid(), UpdateTopicRequestDto.builder()
@@ -344,12 +345,13 @@ class TopicServiceTest {
 				LocalDateTime.of(2026, 8, 18, 0, 0)
 		);
 		given(topicPersistencePort.findByTopicUuid(existing.getTopicUuid())).willReturn(Optional.of(existing));
-		given(agitMembershipPort.findActiveMember(existing.getAgitUuid(), "Bearer test"))
+		UUID guestUuid = UUID.randomUUID();
+		given(agitMembershipPort.findActiveMember(existing.getAgitUuid(), guestUuid))
 				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
 
 		assertThatThrownBy(() -> topicService.update(existing.getTopicUuid(), UpdateTopicRequestDto.builder()
 				.title("저녁 메뉴")
-				.build(), UUID.randomUUID(), "Bearer test"))
+				.build(), guestUuid, "Bearer test"))
 				.isInstanceOf(ForbiddenActorException.class);
 		verify(topicPersistencePort, never()).update(any(Topic.class));
 	}

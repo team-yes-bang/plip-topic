@@ -33,7 +33,7 @@ app:
       topic-unbound: topic.unbound
       topic-video-attached: topic.video.attached
   agit:
-    gateway-base-url: ${AGIT_GATEWAY_BASE_URL:http://localhost:8000}
+    internal-base-url: ${AGIT_INTERNAL_BASE_URL:http://localhost:8083}
 
 springdoc:
   swagger-ui:

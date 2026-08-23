@@ -65,7 +65,7 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 		if (request.getAgitUuid() == null) {
 			throw new IllegalArgumentException("agitUuid는 필수입니다.");
 		}
-		requireActiveMember(request.getAgitUuid(), authorization);
+		requireActiveMember(request.getAgitUuid(), actorUuid);
 		Topic saved = topicPersistencePort.save(Topic.create(
 				request.getAgitUuid(),
 				actorUuid,
@@ -241,9 +241,8 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 		}
 	}
 
-	private void requireActiveMember(UUID agitUuid, String authorization) {
-		requireAuthorization(authorization);
-		agitMembershipPort.findActiveMember(agitUuid, authorization)
+	private void requireActiveMember(UUID agitUuid, UUID actorUuid) {
+		agitMembershipPort.findActiveMember(agitUuid, actorUuid)
 				.orElseThrow(ForbiddenActorException::new);
 	}
 
@@ -252,7 +251,7 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 			return;
 		}
 		requireAuthorization(authorization);
-		AgitMembership membership = agitMembershipPort.findActiveMember(topic.getAgitUuid(), authorization)
+		AgitMembership membership = agitMembershipPort.findActiveMember(topic.getAgitUuid(), actorUuid)
 				.orElseThrow(ForbiddenActorException::new);
 		if (!membership.isHost()) {
 			throw new ForbiddenActorException();

@@ -72,7 +72,7 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 		}
 		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
-		agitMembershipPort.findActiveMember(topic.getAgitUuid(), authorization)
+		agitMembershipPort.findActiveMember(topic.getAgitUuid(), actorUuid)
 				.orElseThrow(ForbiddenActorException::new);
 		boolean attached = topicPersistencePort.addVideoIfAbsent(topicUuid, videoUuid, actorUuid);
 		if (attached) {
