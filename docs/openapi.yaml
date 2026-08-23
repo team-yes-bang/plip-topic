@@ -81,7 +81,7 @@ paths:
       tags:
       - Topic
       summary: 토픽 생성
-      description: 아지트에 주제를 만듭니다. 생성자는 Access JWT이며 ACTIVE 멤버만 가능합니다. 영상은 붙이지 않습니다.
+      description: 아지트에 주제를 만듭니다. 생성자는 Gateway X-User-UUID이며 ACTIVE 멤버만 가능합니다. 영상은 붙이지 않습니다.
       operationId: create
       requestBody:
         content:
@@ -803,7 +803,7 @@ components:
           description: 붙은 영상 수
         uploadedByMe:
           type: boolean
-          description: 조회한 사용자가 이 토픽에 영상을 올렸는지. Access JWT가 없으면 null
+          description: 조회한 사용자가 이 토픽에 영상을 올렸는지. X-User-UUID가 없으면 null
         createdAt:
           type: string
           format: date-time

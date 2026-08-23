@@ -63,7 +63,7 @@ public class TopicController {
 	private final DetachTopicVideoUseCase detachTopicVideoUseCase;
 	private final TopicWebMapper topicWebMapper;
 
-	@Operation(summary = "토픽 생성", description = "아지트에 주제를 만듭니다. 생성자는 Access JWT이며 ACTIVE 멤버만 가능합니다. 영상은 붙이지 않습니다.")
+	@Operation(summary = "토픽 생성", description = "아지트에 주제를 만듭니다. 생성자는 Gateway X-User-UUID이며 ACTIVE 멤버만 가능합니다. 영상은 붙이지 않습니다. 아지트 멤버십 조회는 Authorization Bearer를 게이트웨이로 전달합니다.")
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public TopicResponseDto create(@RequestBody CreateTopicRequest request, HttpServletRequest httpRequest) {
