@@ -1,13 +1,15 @@
 package com.plip.topic.adapter.in.web;
 
+import com.plip.topic.adapter.out.agit.StubAgitMembershipAdapter;
+import com.plip.topic.application.port.out.AgitMemberRole;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.domain.model.Topic;
 import com.plip.topic.global.web.RequestHeaders;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -38,10 +40,20 @@ class TopicControllerTest {
 	@Autowired
 	private TopicPersistencePort topicPersistencePort;
 
+	@Autowired
+	private StubAgitMembershipAdapter stubAgitMembershipAdapter;
+
+	private UUID viewerUuid;
+
+	@BeforeEach
+	void resetMembershipStub() {
+		stubAgitMembershipAdapter.reset();
+		viewerUuid = UUID.randomUUID();
+	}
+
 	private static RequestPostProcessor actor(UUID userUuid) {
 		return request -> {
 			request.addHeader(RequestHeaders.USER_UUID_HEADER, userUuid.toString());
-			request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer test-gateway-token");
 			return request;
 		};
 	}
@@ -90,14 +102,14 @@ class TopicControllerTest {
 	@Test
 	void list_returnsEmptyArrayWhenNoTopics() throws Exception {
 		mockMvc.perform(get("/api/v1/topics")
-						.param("agitUuid", UUID.randomUUID().toString()))
+						.param("agitUuid", UUID.randomUUID().toString()).with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(0));
 	}
 
 	@Test
 	void list_requiresAgitUuid() throws Exception {
-		mockMvc.perform(get("/api/v1/topics"))
+		mockMvc.perform(get("/api/v1/topics").with(actor(viewerUuid)))
 				.andExpect(status().isBadRequest());
 	}
 
@@ -112,28 +124,28 @@ class TopicControllerTest {
 
 		mockMvc.perform(get("/api/v1/topics/list")
 						.param("agitUuid", agitUuid.toString())
-						.param("status", "ONGOING"))
+						.param("status", "ONGOING").with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(1))
 				.andExpect(jsonPath("$[0].title").value("오늘"))
-				.andExpect(jsonPath("$[0].uploadedByMe").doesNotExist());
+				.andExpect(jsonPath("$[0].uploadedByMe").value(false));
 
 		mockMvc.perform(get("/api/v1/topics/list")
 						.param("agitUuid", agitUuid.toString())
-						.param("status", "UPCOMING"))
+						.param("status", "UPCOMING").with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(1))
 				.andExpect(jsonPath("$[0].title").value("내일"));
 
 		mockMvc.perform(get("/api/v1/topics/list")
 						.param("agitUuid", agitUuid.toString())
-						.param("status", "PAST"))
+						.param("status", "PAST").with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(1))
 				.andExpect(jsonPath("$[0].title").value("어제"));
 
 		mockMvc.perform(get("/api/v1/topics")
-						.param("agitUuid", agitUuid.toString()))
+						.param("agitUuid", agitUuid.toString()).with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(3))
 				.andExpect(jsonPath("$[0].title").value("내일"))
@@ -144,14 +156,14 @@ class TopicControllerTest {
 	@Test
 	void listByStatus_requiresStatus() throws Exception {
 		mockMvc.perform(get("/api/v1/topics/list")
-						.param("agitUuid", UUID.randomUUID().toString()))
+						.param("agitUuid", UUID.randomUUID().toString()).with(actor(viewerUuid)))
 				.andExpect(status().isBadRequest());
 	}
 
 	@Test
 	void listByStatus_requiresAgitUuid() throws Exception {
 		mockMvc.perform(get("/api/v1/topics/list")
-						.param("status", "ONGOING"))
+						.param("status", "ONGOING").with(actor(viewerUuid)))
 				.andExpect(status().isBadRequest());
 	}
 
@@ -159,7 +171,7 @@ class TopicControllerTest {
 	void listByStatus_rejectsUnknownStatus() throws Exception {
 		mockMvc.perform(get("/api/v1/topics/list")
 						.param("agitUuid", UUID.randomUUID().toString())
-						.param("status", "ALL"))
+						.param("status", "ALL").with(actor(viewerUuid)))
 				.andExpect(status().isBadRequest());
 	}
 
@@ -174,21 +186,21 @@ class TopicControllerTest {
 
 		mockMvc.perform(get("/api/v1/topics/list")
 						.param("agitUuid", agitUuid.toString())
-						.param("status", "ONGOING"))
+						.param("status", "ONGOING").with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(10));
 
 		mockMvc.perform(get("/api/v1/topics/list")
 						.param("agitUuid", agitUuid.toString())
 						.param("status", "ONGOING")
-						.param("limit", "21"))
+						.param("limit", "21").with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(20));
 
 		mockMvc.perform(get("/api/v1/topics/list")
 						.param("agitUuid", agitUuid.toString())
 						.param("status", "ONGOING")
-						.param("limit", "5"))
+						.param("limit", "5").with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(5));
 	}
@@ -206,7 +218,7 @@ class TopicControllerTest {
 
 		mockMvc.perform(get("/api/v1/topics/list")
 						.param("agitUuid", agitUuid.toString())
-						.param("status", "ONGOING"))
+						.param("status", "ONGOING").with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(2))
 				.andExpect(jsonPath("$[0].title").value("빈 토픽"))
@@ -232,7 +244,7 @@ class TopicControllerTest {
 
 		mockMvc.perform(get("/api/v1/topics/feed")
 						.param("agitUuid", agitUuid.toString())
-						.param("topicUuid", todaySecond.getTopicUuid().toString()))
+						.param("topicUuid", todaySecond.getTopicUuid().toString()).with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.current.title").value("오늘-2"))
 				.andExpect(jsonPath("$.before.length()").value(1))
@@ -242,14 +254,14 @@ class TopicControllerTest {
 
 		mockMvc.perform(get("/api/v1/topics/feed")
 						.param("agitUuid", agitUuid.toString())
-						.param("date", today.toString()))
+						.param("date", today.toString()).with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.current.title").value("오늘-1"))
 				.andExpect(jsonPath("$.after[0].title").value("오늘-2"));
 
 		mockMvc.perform(get("/api/v1/topics/list")
 						.param("agitUuid", agitUuid.toString())
-						.param("status", "ONGOING"))
+						.param("status", "ONGOING").with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(3));
 	}
@@ -258,12 +270,12 @@ class TopicControllerTest {
 	void feed_requiresExactlyOneAnchor() throws Exception {
 		UUID agitUuid = UUID.randomUUID();
 		mockMvc.perform(get("/api/v1/topics/feed")
-						.param("agitUuid", agitUuid.toString()))
+						.param("agitUuid", agitUuid.toString()).with(actor(viewerUuid)))
 				.andExpect(status().isBadRequest());
 		mockMvc.perform(get("/api/v1/topics/feed")
 						.param("agitUuid", agitUuid.toString())
 						.param("topicUuid", UUID.randomUUID().toString())
-						.param("date", LocalDate.now(ZoneId.of("Asia/Seoul")).toString()))
+						.param("date", LocalDate.now(ZoneId.of("Asia/Seoul")).toString()).with(actor(viewerUuid)))
 				.andExpect(status().isBadRequest());
 	}
 
@@ -276,11 +288,11 @@ class TopicControllerTest {
 				LocalDateTime.of(2026, 8, 18, 0, 0)
 		));
 
-		mockMvc.perform(get("/api/v1/topics/{topicUuid}", saved.getTopicUuid()))
+		mockMvc.perform(get("/api/v1/topics/{topicUuid}", saved.getTopicUuid()).with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.title").value("단건"))
 				.andExpect(jsonPath("$.videoCount").value(0))
-				.andExpect(jsonPath("$.uploadedByMe").doesNotExist());
+				.andExpect(jsonPath("$.uploadedByMe").value(false));
 	}
 
 	@Test
@@ -331,7 +343,7 @@ class TopicControllerTest {
 				.andExpect(jsonPath("$.videoUuid").value(videoUuid.toString()))
 				.andExpect(jsonPath("$.userUuid").value(userUuid.toString()));
 
-		mockMvc.perform(get("/api/v1/topics/{topicUuid}/videos", saved.getTopicUuid()))
+		mockMvc.perform(get("/api/v1/topics/{topicUuid}/videos", saved.getTopicUuid()).with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(1))
 				.andExpect(jsonPath("$[0].videoUuid").value(videoUuid.toString()));
@@ -376,7 +388,7 @@ class TopicControllerTest {
 						.with(actor(userUuid)))
 				.andExpect(status().isNoContent());
 
-		mockMvc.perform(get("/api/v1/topics/{topicUuid}/videos", saved.getTopicUuid()))
+		mockMvc.perform(get("/api/v1/topics/{topicUuid}/videos", saved.getTopicUuid()).with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(0));
 	}
@@ -447,7 +459,7 @@ class TopicControllerTest {
 				.andExpect(status().isNoContent());
 
 		mockMvc.perform(get("/api/v1/topics")
-						.param("agitUuid", saved.getAgitUuid().toString()))
+						.param("agitUuid", saved.getAgitUuid().toString()).with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(0));
 	}
@@ -471,7 +483,7 @@ class TopicControllerTest {
 
 		mockMvc.perform(get("/api/v1/topics/calendar")
 						.param("agitUuid", agitUuid.toString())
-						.param("yearMonth", "2026-08"))
+						.param("yearMonth", "2026-08").with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.yearMonth").value("2026-08"))
 				.andExpect(jsonPath("$.activeDates.length()").value(1))
@@ -515,5 +527,118 @@ class TopicControllerTest {
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value("ACCESS_TOKEN_INVALID"))
 				.andExpect(jsonPath("$.message").value("인증이 필요합니다."));
+	}
+
+	@Test
+	void list_returnsUnauthorizedWithoutActor() throws Exception {
+		mockMvc.perform(get("/api/v1/topics")
+						.param("agitUuid", UUID.randomUUID().toString()))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("ACCESS_TOKEN_INVALID"));
+	}
+
+	@Test
+	void list_returnsForbiddenForNonMember() throws Exception {
+		stubAgitMembershipAdapter.deny(viewerUuid);
+		mockMvc.perform(get("/api/v1/topics")
+						.param("agitUuid", UUID.randomUUID().toString())
+						.with(actor(viewerUuid)))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.message").value("권한이 없습니다."));
+	}
+
+	@Test
+	void get_returnsForbiddenForNonMember() throws Exception {
+		Topic saved = topicPersistencePort.save(Topic.create(
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				"단건",
+				LocalDateTime.of(2026, 8, 18, 0, 0)
+		));
+		stubAgitMembershipAdapter.deny(viewerUuid);
+		mockMvc.perform(get("/api/v1/topics/{topicUuid}", saved.getTopicUuid())
+						.with(actor(viewerUuid)))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void update_allowsHostWhoIsNotCreator() throws Exception {
+		Topic saved = topicPersistencePort.save(Topic.create(
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				"점심 메뉴",
+				LocalDateTime.of(2026, 8, 18, 0, 0)
+		));
+		UUID hostUuid = UUID.randomUUID();
+		stubAgitMembershipAdapter.setRole(hostUuid, AgitMemberRole.HOST);
+
+		mockMvc.perform(patch("/api/v1/topics/{topicUuid}", saved.getTopicUuid())
+						.with(actor(hostUuid))
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "title": "저녁 메뉴"
+								}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.title").value("저녁 메뉴"));
+	}
+
+	@Test
+	void update_forbidsGuestWhoIsNotCreator() throws Exception {
+		Topic saved = topicPersistencePort.save(Topic.create(
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				"점심 메뉴",
+				LocalDateTime.of(2026, 8, 18, 0, 0)
+		));
+		UUID guestUuid = UUID.randomUUID();
+		stubAgitMembershipAdapter.setRole(guestUuid, AgitMemberRole.GUEST);
+
+		mockMvc.perform(patch("/api/v1/topics/{topicUuid}", saved.getTopicUuid())
+						.with(actor(guestUuid))
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "title": "저녁 메뉴"
+								}
+								"""))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void update_forbidsWithdrawnCreator() throws Exception {
+		Topic saved = topicPersistencePort.save(Topic.create(
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				"점심 메뉴",
+				LocalDateTime.of(2026, 8, 18, 0, 0)
+		));
+		stubAgitMembershipAdapter.deny(saved.getCreatorUuid());
+
+		mockMvc.perform(patch("/api/v1/topics/{topicUuid}", saved.getTopicUuid())
+						.with(actor(saved.getCreatorUuid()))
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "title": "저녁 메뉴"
+								}
+								"""))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void delete_forbidsWithdrawnCreator() throws Exception {
+		Topic saved = topicPersistencePort.save(Topic.create(
+				UUID.randomUUID(),
+				UUID.randomUUID(),
+				"삭제 대상",
+				null
+		));
+		stubAgitMembershipAdapter.deny(saved.getCreatorUuid());
+
+		mockMvc.perform(delete("/api/v1/topics/{topicUuid}", saved.getTopicUuid())
+						.with(actor(saved.getCreatorUuid())))
+				.andExpect(status().isForbidden());
 	}
 }
