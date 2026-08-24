@@ -34,6 +34,7 @@ public class SecurityConfig {
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 						.requestMatchers(
+								"/api/test",
 								"/actuator/health",
 								"/actuator/info",
 								"/v3/api-docs",
@@ -41,8 +42,8 @@ public class SecurityConfig {
 								"/swagger-ui.html",
 								"/swagger-ui/**"
 						).permitAll()
-						.requestMatchers("/api/v1/topics", "/api/v1/topics/**").authenticated()
-						.anyRequest().permitAll()
+						.requestMatchers("/api/**").authenticated()
+						.anyRequest().authenticated()
 				)
 				.addFilterBefore(
 						userUuidHeaderAuthenticationFilter,
