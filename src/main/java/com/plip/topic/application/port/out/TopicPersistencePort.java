@@ -38,4 +38,6 @@ public interface TopicPersistencePort {
 	boolean addVideoIfAbsent(UUID topicUuid, UUID videoUuid, UUID userUuid);
 
 	void removeVideo(UUID topicUuid, UUID videoUuid, UUID userUuid);
+
+	Optional<UUID> findAgitUuidByVideoUuid(UUID videoUuid);
 }

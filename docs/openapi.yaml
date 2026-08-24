@@ -12,6 +12,8 @@ security:
 tags:
 - name: Topic
   description: 토픽(주제) API. 영상 격자는 /videos 하위 리소스.
+- name: Topic Internal
+  description: 내부 서비스 간 인가/동기화 전용 API
 paths:
   /api/v1/topics:
     get:
@@ -30,16 +32,16 @@ paths:
           type: string
           format: uuid
       responses:
-        "403":
-          description: Forbidden
+        "409":
+          description: Conflict
           content:
             '*/*':
               schema:
                 type: object
                 additionalProperties:
                   type: string
-        "409":
-          description: Conflict
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -62,8 +64,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "403":
+          description: Forbidden
           content:
             '*/*':
               schema:
@@ -92,16 +94,16 @@ paths:
               $ref: "#/components/schemas/CreateTopicRequest"
         required: true
       responses:
-        "403":
-          description: Forbidden
+        "409":
+          description: Conflict
           content:
             '*/*':
               schema:
                 type: object
                 additionalProperties:
                   type: string
-        "409":
-          description: Conflict
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -124,8 +126,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "403":
+          description: Forbidden
           content:
             '*/*':
               schema:
@@ -153,16 +155,16 @@ paths:
           type: string
           format: uuid
       responses:
-        "403":
-          description: Forbidden
+        "409":
+          description: Conflict
           content:
             '*/*':
               schema:
                 type: object
                 additionalProperties:
                   type: string
-        "409":
-          description: Conflict
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -185,8 +187,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "403":
+          description: Forbidden
           content:
             '*/*':
               schema:
@@ -221,16 +223,16 @@ paths:
               $ref: "#/components/schemas/AttachTopicVideoRequest"
         required: true
       responses:
-        "403":
-          description: Forbidden
+        "409":
+          description: Conflict
           content:
             '*/*':
               schema:
                 type: object
                 additionalProperties:
                   type: string
-        "409":
-          description: Conflict
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -253,8 +255,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "403":
+          description: Forbidden
           content:
             '*/*':
               schema:
@@ -282,16 +284,16 @@ paths:
           type: string
           format: uuid
       responses:
-        "403":
-          description: Forbidden
+        "409":
+          description: Conflict
           content:
             '*/*':
               schema:
                 type: object
                 additionalProperties:
                   type: string
-        "409":
-          description: Conflict
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -314,8 +316,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "403":
+          description: Forbidden
           content:
             '*/*':
               schema:
@@ -343,16 +345,16 @@ paths:
           type: string
           format: uuid
       responses:
-        "403":
-          description: Forbidden
+        "409":
+          description: Conflict
           content:
             '*/*':
               schema:
                 type: object
                 additionalProperties:
                   type: string
-        "409":
-          description: Conflict
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -375,8 +377,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "403":
+          description: Forbidden
           content:
             '*/*':
               schema:
@@ -407,16 +409,16 @@ paths:
               $ref: "#/components/schemas/UpdateTopicRequest"
         required: true
       responses:
-        "403":
-          description: Forbidden
+        "409":
+          description: Conflict
           content:
             '*/*':
               schema:
                 type: object
                 additionalProperties:
                   type: string
-        "409":
-          description: Conflict
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -439,8 +441,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "403":
+          description: Forbidden
           content:
             '*/*':
               schema:
@@ -453,6 +455,72 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/TopicResponseDto"
+  /internal/v1/topic-videos/{videoUuid}/access/{userUuid}:
+    head:
+      tags:
+      - Topic Internal
+      summary: 비디오 접근 권한 검증
+      description: "비디오 서비스에서 비소유자가 영상 재생/조회 시 토픽 소속 여부 및 아지트 멤버십을 검증합니다. Body 없이\
+        \ HTTP 상태 코드만 반환합니다. (204: 승인, 403: 거부, 404: 없음)"
+      operationId: checkAccess
+      parameters:
+      - name: videoUuid
+        in: path
+        description: 비디오 UUID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: userUuid
+        in: path
+        description: 요청 사용자 UUID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "409":
+          description: Conflict
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "400":
+          description: Bad Request
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "401":
+          description: Unauthorized
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "503":
+          description: Service Unavailable
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "403":
+          description: Forbidden
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        "200":
+          description: OK
   /api/v1/topics/list:
     get:
       tags:
@@ -487,16 +555,16 @@ paths:
           type: integer
           format: int32
       responses:
-        "403":
-          description: Forbidden
+        "409":
+          description: Conflict
           content:
             '*/*':
               schema:
                 type: object
                 additionalProperties:
                   type: string
-        "409":
-          description: Conflict
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -519,8 +587,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "403":
+          description: Forbidden
           content:
             '*/*':
               schema:
@@ -580,16 +648,16 @@ paths:
           type: integer
           format: int32
       responses:
-        "403":
-          description: Forbidden
+        "409":
+          description: Conflict
           content:
             '*/*':
               schema:
                 type: object
                 additionalProperties:
                   type: string
-        "409":
-          description: Conflict
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -612,8 +680,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "403":
+          description: Forbidden
           content:
             '*/*':
               schema:
@@ -649,16 +717,16 @@ paths:
           type: string
         example: 2026-08
       responses:
-        "403":
-          description: Forbidden
+        "409":
+          description: Conflict
           content:
             '*/*':
               schema:
                 type: object
                 additionalProperties:
                   type: string
-        "409":
-          description: Conflict
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -681,8 +749,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "403":
+          description: Forbidden
           content:
             '*/*':
               schema:
@@ -716,16 +784,16 @@ paths:
           type: string
           format: uuid
       responses:
-        "403":
-          description: Forbidden
+        "409":
+          description: Conflict
           content:
             '*/*':
               schema:
                 type: object
                 additionalProperties:
                   type: string
-        "409":
-          description: Conflict
+        "400":
+          description: Bad Request
           content:
             '*/*':
               schema:
@@ -748,8 +816,8 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-        "400":
-          description: Bad Request
+        "403":
+          description: Forbidden
           content:
             '*/*':
               schema:
@@ -852,7 +920,8 @@ components:
           description: 진행 날짜
     TopicFeedResponseDto:
       type: object
-      description: "토픽 뷰어 이웃. 다가오는 제외. 진행중은 영상 0개 포함, 지난은 영상 있는 토픽만. 오늘 다음 지난 순서. before/after는 현재에 가까운 순."
+      description: "토픽 뷰어 이웃. 다가오는 제외. 진행중은 영상 0개 포함, 지난은 영상 있는 토픽만. 오늘 다음 지난 순서.\
+        \ before/after는 현재에 가까운 순."
       properties:
         current:
           $ref: "#/components/schemas/TopicResponseDto"

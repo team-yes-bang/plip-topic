@@ -5,6 +5,7 @@ import com.plip.topic.adapter.out.persistence.entity.TopicEntity;
 import com.plip.topic.adapter.out.persistence.mapper.TopicPersistenceMapper;
 import com.plip.topic.adapter.out.persistence.repository.TopicCalendarDayJpaRepository;
 import com.plip.topic.adapter.out.persistence.repository.TopicJpaRepository;
+import com.plip.topic.adapter.out.persistence.repository.TopicVideoJpaRepository;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.domain.model.Topic;
 import com.plip.topic.domain.model.TopicListStatus;
@@ -27,6 +28,7 @@ public class TopicPersistenceAdapter implements TopicPersistencePort {
 
 	private final TopicJpaRepository topicJpaRepository;
 	private final TopicCalendarDayJpaRepository topicCalendarDayJpaRepository;
+	private final TopicVideoJpaRepository topicVideoJpaRepository;
 	private final TopicPersistenceMapper topicPersistenceMapper;
 
 	@Override
@@ -200,6 +202,11 @@ public class TopicPersistenceAdapter implements TopicPersistencePort {
 		topicPersistenceMapper.toDomain(entity).detachVideo(userUuid, videoUuid);
 		entity.removeVideo(videoUuid);
 		applyCalendarDelta(entity.getAgitUuid(), entity.getStartAt().toLocalDate(), 0, -1);
+	}
+
+	@Override
+	public Optional<UUID> findAgitUuidByVideoUuid(UUID videoUuid) {
+		return topicVideoJpaRepository.findAgitUuidByVideoUuid(videoUuid);
 	}
 
 	private void applyCalendarDelta(UUID agitUuid, LocalDate day, int topicDelta, int videoDelta) {
