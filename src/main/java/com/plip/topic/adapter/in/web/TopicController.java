@@ -73,7 +73,7 @@ public class TopicController {
 
 	@Operation(
 			summary = "토픽 뷰어 이웃 조회",
-			description = "영상 있는 토픽만, 오늘 다음 지난 순서. topicUuid 또는 date 중 하나만. before/after 기본 1 최대 3. 로그인+ACTIVE 멤버만."
+			description = "다가오는 제외. 진행중은 영상 0개 포함, 지난은 영상 있는 토픽만. 오늘 다음 지난 순서. topicUuid 또는 date 중 하나만. before/after 기본 1 최대 3. 로그인+ACTIVE 멤버만."
 	)
 	@GetMapping("/feed")
 	public TopicFeedResponseDto feed(

@@ -248,7 +248,8 @@ class TopicControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.current.title").value("오늘-2"))
 				.andExpect(jsonPath("$.before.length()").value(1))
-				.andExpect(jsonPath("$.before[0].title").value("오늘-1"))
+				.andExpect(jsonPath("$.before[0].title").value("오늘-빈"))
+				.andExpect(jsonPath("$.before[0].videoCount").value(0))
 				.andExpect(jsonPath("$.after.length()").value(1))
 				.andExpect(jsonPath("$.after[0].title").value("어제"));
 
@@ -257,7 +258,7 @@ class TopicControllerTest {
 						.param("date", today.toString()).with(actor(viewerUuid)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.current.title").value("오늘-1"))
-				.andExpect(jsonPath("$.after[0].title").value("오늘-2"));
+				.andExpect(jsonPath("$.after[0].title").value("오늘-빈"));
 
 		mockMvc.perform(get("/api/v1/topics/list")
 						.param("agitUuid", agitUuid.toString())
