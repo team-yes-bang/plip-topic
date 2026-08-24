@@ -80,7 +80,6 @@ public interface TopicJpaRepository extends JpaRepository<TopicEntity, Long> {
 			  AND t.deletedAt IS NULL
 			  AND t.startAt >= :fromInclusive
 			  AND t.startAt < :toExclusive
-			  AND SIZE(t.videos) > 0
 			ORDER BY t.startAt ASC, t.createdAt ASC, t.topicUuid ASC
 			""")
 	List<TopicEntity> findFeedOngoingWithVideos(

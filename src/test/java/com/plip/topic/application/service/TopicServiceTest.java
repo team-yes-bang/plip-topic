@@ -188,19 +188,40 @@ class TopicServiceTest {
 	}
 
 	@Test
-	void feed_skipsUpcomingAndEmptyWhenResolvedByTopic() {
+	void feed_includesEmptyOngoingWhenResolvedByTopic() {
 		UUID agitUuid = UUID.randomUUID();
 		UUID actorUuid = UUID.randomUUID();
 		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
 		Topic empty = Topic.create(agitUuid, UUID.randomUUID(), "빈", today.atStartOfDay());
 		givenMember(agitUuid, actorUuid, AgitMemberRole.GUEST);
 		given(topicPersistencePort.findByTopicUuid(empty.getTopicUuid())).willReturn(Optional.of(empty));
+		given(topicPersistencePort.findFeedOngoingWithVideos(agitUuid, today)).willReturn(List.of(empty));
+		given(topicPersistencePort.findFeedPastFromStart(agitUuid, today, 1)).willReturn(List.of());
 
 		var result = topicService.feed(agitUuid, empty.getTopicUuid(), null, 1, 1, actorUuid);
 
-		assertThat(result.getCurrent()).isNull();
+		assertThat(result.getCurrent().getTitle()).isEqualTo("빈");
+		assertThat(result.getCurrent().getVideoCount()).isZero();
 		assertThat(result.getBefore()).isEmpty();
 		assertThat(result.getAfter()).isEmpty();
+	}
+
+	@Test
+	void feed_skipsUpcomingAndEmptyPastWhenResolvedByTopic() {
+		UUID agitUuid = UUID.randomUUID();
+		UUID actorUuid = UUID.randomUUID();
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+		Topic emptyPast = Topic.create(agitUuid, UUID.randomUUID(), "빈-어제", today.minusDays(1).atStartOfDay());
+		Topic upcoming = topicWithVideo(agitUuid, "내일", today.plusDays(1).atStartOfDay());
+		givenMember(agitUuid, actorUuid, AgitMemberRole.GUEST);
+		given(topicPersistencePort.findByTopicUuid(emptyPast.getTopicUuid())).willReturn(Optional.of(emptyPast));
+		given(topicPersistencePort.findByTopicUuid(upcoming.getTopicUuid())).willReturn(Optional.of(upcoming));
+
+		var emptyPastFeed = topicService.feed(agitUuid, emptyPast.getTopicUuid(), null, 1, 1, actorUuid);
+		var upcomingFeed = topicService.feed(agitUuid, upcoming.getTopicUuid(), null, 1, 1, actorUuid);
+
+		assertThat(emptyPastFeed.getCurrent()).isNull();
+		assertThat(upcomingFeed.getCurrent()).isNull();
 	}
 
 	private static Topic topicWithVideo(UUID agitUuid, String title, LocalDateTime startAt) {

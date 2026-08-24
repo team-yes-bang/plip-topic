@@ -161,7 +161,7 @@ class TopicPersistenceAdapterTest {
 	}
 
 	@Test
-	void findFeedOngoingWithVideos_excludesEmptyUpcomingAndDeleted() {
+	void findFeedOngoingWithVideos_includesEmptyTodayAndExcludesUpcomingAndDeleted() {
 		UUID agitUuid = UUID.randomUUID();
 		UUID creatorUuid = UUID.randomUUID();
 		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
@@ -178,7 +178,8 @@ class TopicPersistenceAdapterTest {
 
 		List<Topic> ongoing = topicPersistencePort.findFeedOngoingWithVideos(agitUuid, today);
 
-		assertThat(ongoing).extracting(Topic::getTitle).containsExactly("오늘-1", "오늘-2");
+		assertThat(ongoing).extracting(Topic::getTitle).containsExactly("오늘-빈", "오늘-1", "오늘-2");
+		assertThat(ongoing.get(0).videoCount()).isZero();
 	}
 
 	@Test

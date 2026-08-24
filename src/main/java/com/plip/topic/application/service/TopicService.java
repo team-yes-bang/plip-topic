@@ -183,7 +183,10 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 		if (!agitUuid.equals(topic.getAgitUuid())) {
 			throw new IllegalArgumentException("agitUuid가 토픽과 일치하지 않습니다.");
 		}
-		if (topic.videoCount() == 0 || !isInFeedWindow(topic, today)) {
+		if (!isInFeedWindow(topic, today)) {
+			return null;
+		}
+		if (isPastStart(topic, today) && topic.videoCount() == 0) {
 			return null;
 		}
 		return topic;
@@ -192,6 +195,10 @@ public class TopicService implements ListTopicsUseCase, GetTopicUseCase, GetTopi
 	private boolean isInFeedWindow(Topic topic, LocalDate today) {
 		LocalDateTime nextDayStart = today.plusDays(1).atStartOfDay();
 		return topic.getStartAt() != null && topic.getStartAt().isBefore(nextDayStart);
+	}
+
+	private boolean isPastStart(Topic topic, LocalDate today) {
+		return topic.getStartAt() != null && topic.getStartAt().isBefore(today.atStartOfDay());
 	}
 
 	private TopicFeedResult neighborsOf(
