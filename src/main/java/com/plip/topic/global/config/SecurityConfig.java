@@ -38,6 +38,7 @@ public class SecurityConfig {
 								"/actuator/health",
 								"/actuator/info",
 								"/v3/api-docs",
+								"/v3/api-docs.yaml",
 								"/v3/api-docs/**",
 								"/swagger-ui.html",
 								"/swagger-ui/**"
