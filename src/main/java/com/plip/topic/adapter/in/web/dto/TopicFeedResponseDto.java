@@ -8,7 +8,7 @@ import java.util.List;
 
 @Getter
 @Builder
-@Schema(description = "토픽 뷰어 이웃. 영상 있는 토픽만, 오늘 다음 지난 순서. before/after는 현재에 가까운 순.")
+@Schema(description = "토픽 뷰어 이웃. 다가오는 제외. 진행중은 영상 0개 포함, 지난은 영상 있는 토픽만. 오늘 다음 지난 순서. before/after는 현재에 가까운 순.")
 public class TopicFeedResponseDto {
 
 	@Schema(description = "기준 토픽. 피드에 없으면 null")
