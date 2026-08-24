@@ -116,13 +116,14 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 		if (topicUuid == null) {
 			throw new IllegalArgumentException("topicUuid는 필수입니다.");
 		}
-		return topicViewerSnapshotPort.findByTopicUuid(topicUuid)
-				.orElseGet(() -> {
-					Topic loaded = topicPersistencePort.findByTopicUuid(topicUuid)
-							.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
-					saveSnapshotQuietly(loaded);
-					return loaded;
-				});
+		Topic snapshot = topicViewerSnapshotPort.findByTopicUuid(topicUuid).orElse(null);
+		if (snapshot != null && !snapshot.getVideos().isEmpty()) {
+			return snapshot;
+		}
+		Topic loaded = topicPersistencePort.findByTopicUuid(topicUuid)
+				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
+		saveSnapshotQuietly(loaded);
+		return loaded;
 	}
 
 	private void saveSnapshotAfterCommit(Topic topic) {

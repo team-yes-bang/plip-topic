@@ -188,6 +188,25 @@ class TopicVideoServiceTest {
 	}
 
 	@Test
+	void list_loadsPersistenceWhenSnapshotHasNoVideos() {
+		UUID userUuid = UUID.randomUUID();
+		UUID videoUuid = UUID.randomUUID();
+		Topic emptySnapshot = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
+		Topic persisted = emptySnapshot.attachVideo(userUuid, videoUuid);
+		given(topicViewerSnapshotPort.findByTopicUuid(emptySnapshot.getTopicUuid())).willReturn(Optional.of(emptySnapshot));
+		given(topicPersistencePort.findByTopicUuid(emptySnapshot.getTopicUuid())).willReturn(Optional.of(persisted));
+		given(agitMembershipPort.findActiveMember(emptySnapshot.getAgitUuid(), userUuid))
+				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
+
+		var results = topicVideoService.list(emptySnapshot.getTopicUuid(), userUuid);
+
+		assertThat(results).hasSize(1);
+		assertThat(results.get(0).getVideoUuid()).isEqualTo(videoUuid);
+		verify(topicPersistencePort).findByTopicUuid(emptySnapshot.getTopicUuid());
+		verify(topicViewerSnapshotPort).save(persisted);
+	}
+
+	@Test
 	void list_loadsPersistenceOnSnapshotMiss() {
 		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
 		given(topicViewerSnapshotPort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.empty());
