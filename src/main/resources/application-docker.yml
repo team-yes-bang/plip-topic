@@ -31,3 +31,5 @@ eureka:
 app:
   agit:
     internal-base-url: ${AGIT_INTERNAL_BASE_URL:http://agit:8080}
+  internal:
+    api-key: ${INTERNAL_API_KEY:}
