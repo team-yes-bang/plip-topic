@@ -2,6 +2,7 @@ package com.plip.topic.adapter.in.web;
 
 import com.plip.topic.application.port.in.CheckTopicVideoAccessUseCase;
 import com.plip.topic.application.port.in.TopicVideoAccessStatus;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,9 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
+@Hidden
 @Tag(name = "Topic Internal", description = "내부 서비스 간 인가/동기화 전용 API")
 @RestController
-@RequestMapping("/internal/v1/topic-videos")
+@RequestMapping("/internal/v1/videos")
 @RequiredArgsConstructor
 public class TopicInternalController {
 
@@ -25,7 +27,7 @@ public class TopicInternalController {
 
 	@Operation(
 			summary = "비디오 접근 권한 검증",
-			description = "비디오 서비스에서 비소유자가 영상 재생/조회 시 토픽 소속 여부 및 아지트 멤버십을 검증합니다. Body 없이 HTTP 상태 코드만 반환합니다. (204: 승인, 403: 거부, 404: 없음)"
+			description = "비디오 서비스에서 비소유자가 영상 재생/조회 시 토픽 소속 여부 및 아지트 멤버십을 검증합니다. Body 없이 HTTP 상태 코드만 반환합니다. (204: 승인, 403: 링크 없음 또는 비멤버, 401: 내부 API 키 없음/불일치)"
 	)
 	@RequestMapping(value = "/{videoUuid}/access/{userUuid}", method = RequestMethod.HEAD)
 	public ResponseEntity<Void> checkAccess(
@@ -38,7 +40,6 @@ public class TopicInternalController {
 		return switch (status) {
 			case ALLOWED -> ResponseEntity.noContent().build();
 			case FORBIDDEN -> ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-			case NOT_FOUND -> ResponseEntity.notFound().build();
 		};
 	}
 }

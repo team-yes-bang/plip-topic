@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -22,17 +22,19 @@ public class CheckTopicVideoAccessService implements CheckTopicVideoAccessUseCas
 	@Override
 	public TopicVideoAccessStatus checkAccess(UUID videoUuid, UUID userUuid) {
 		if (videoUuid == null || userUuid == null) {
-			return TopicVideoAccessStatus.NOT_FOUND;
+			return TopicVideoAccessStatus.FORBIDDEN;
 		}
 
-		Optional<UUID> agitUuidOpt = topicPersistencePort.findAgitUuidByVideoUuid(videoUuid);
-		if (agitUuidOpt.isEmpty()) {
-			return TopicVideoAccessStatus.NOT_FOUND;
+		List<UUID> agitUuids = topicPersistencePort.findAgitUuidsByVideoUuid(videoUuid);
+		if (agitUuids.isEmpty()) {
+			return TopicVideoAccessStatus.FORBIDDEN;
 		}
 
-		UUID agitUuid = agitUuidOpt.get();
-		return agitMembershipPort.findActiveMember(agitUuid, userUuid)
-				.map(membership -> TopicVideoAccessStatus.ALLOWED)
-				.orElse(TopicVideoAccessStatus.FORBIDDEN);
+		for (UUID agitUuid : agitUuids) {
+			if (agitMembershipPort.findActiveMember(agitUuid, userUuid).isPresent()) {
+				return TopicVideoAccessStatus.ALLOWED;
+			}
+		}
+		return TopicVideoAccessStatus.FORBIDDEN;
 	}
 }

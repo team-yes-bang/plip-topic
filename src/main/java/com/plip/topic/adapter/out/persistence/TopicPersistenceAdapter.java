@@ -205,8 +205,11 @@ public class TopicPersistenceAdapter implements TopicPersistencePort {
 	}
 
 	@Override
-	public Optional<UUID> findAgitUuidByVideoUuid(UUID videoUuid) {
-		return topicVideoJpaRepository.findAgitUuidByVideoUuid(videoUuid);
+	public List<UUID> findAgitUuidsByVideoUuid(UUID videoUuid) {
+		if (videoUuid == null) {
+			return List.of();
+		}
+		return topicVideoJpaRepository.findAgitUuidsByVideoUuid(videoUuid);
 	}
 
 	private void applyCalendarDelta(UUID agitUuid, LocalDate day, int topicDelta, int videoDelta) {
