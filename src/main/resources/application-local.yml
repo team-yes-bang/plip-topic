@@ -31,3 +31,8 @@ eureka:
 app:
   agit:
     internal-base-url: ${AGIT_INTERNAL_BASE_URL:http://localhost:8083}
+  internal:
+    api-key: ${INTERNAL_API_KEY:local-dev-internal-key}
+  video:
+    internal-base-url: ${VIDEO_INTERNAL_BASE_URL:http://localhost:8085}
+    internal-api-key: ${VIDEO_INTERNAL_API_KEY:local-dev-internal-key}

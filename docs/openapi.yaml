@@ -455,13 +455,13 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/TopicResponseDto"
-  /internal/v1/topic-videos/{videoUuid}/access/{userUuid}:
+  /internal/v1/videos/{videoUuid}/access/{userUuid}:
     head:
       tags:
       - Topic Internal
       summary: 비디오 접근 권한 검증
       description: "비디오 서비스에서 비소유자가 영상 재생/조회 시 토픽 소속 여부 및 아지트 멤버십을 검증합니다. Body 없이\
-        \ HTTP 상태 코드만 반환합니다. (204: 승인, 403: 거부, 404: 없음)"
+        \ HTTP 상태 코드만 반환합니다. (204: 승인, 403: 링크 없음 또는 비멤버, 401: 내부 API 키 없음/불일치)"
       operationId: checkAccess
       parameters:
       - name: videoUuid

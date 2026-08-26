@@ -39,5 +39,5 @@ public interface TopicPersistencePort {
 
 	void removeVideo(UUID topicUuid, UUID videoUuid, UUID userUuid);
 
-	Optional<UUID> findAgitUuidByVideoUuid(UUID videoUuid);
+	List<UUID> findAgitUuidsByVideoUuid(UUID videoUuid);
 }

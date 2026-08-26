@@ -11,6 +11,7 @@ import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
 import com.plip.topic.application.port.out.TopicVideoEventPort;
 import com.plip.topic.application.port.out.TopicViewerSnapshotPort;
+import com.plip.topic.application.port.out.VideoOwnershipPort;
 import com.plip.topic.domain.model.Topic;
 import com.plip.topic.domain.model.TopicVideoLimitException;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 	private final TopicViewerSnapshotPort topicViewerSnapshotPort;
 	private final TopicVideoEventPort topicVideoEventPort;
 	private final AgitMembershipPort agitMembershipPort;
+	private final VideoOwnershipPort videoOwnershipPort;
 
 	@Override
 	@Transactional
@@ -41,13 +43,33 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 		if (topicUuid == null || videoUuid == null || userUuid == null) {
 			return false;
 		}
+		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid).orElse(null);
+		if (topic == null) {
+			return false;
+		}
+		if (agitMembershipPort.findActiveMember(topic.getAgitUuid(), userUuid).isEmpty()) {
+			log.warn(
+					"토픽 영상 Kafka attach 비멤버 skip topicUuid={} videoUuid={} userUuid={}",
+					topicUuid,
+					videoUuid,
+					userUuid
+			);
+			return false;
+		}
+		if (!ownsVideo(videoUuid, userUuid)) {
+			log.warn(
+					"토픽 영상 Kafka attach 소유권 불일치 skip topicUuid={} videoUuid={} userUuid={}",
+					topicUuid,
+					videoUuid,
+					userUuid
+			);
+			return false;
+		}
 		try {
 			boolean attached = topicPersistencePort.addVideoIfAbsent(topicUuid, videoUuid, userUuid);
 			if (attached) {
-				topicPersistencePort.findByTopicUuid(topicUuid).ifPresent(topic -> {
-					topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
-					saveSnapshotAfterCommit(topic);
-				});
+				topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
+				saveSnapshotAfterCommit(topicPersistencePort.findByTopicUuid(topicUuid).orElse(topic));
 			}
 			return attached;
 		} catch (TopicVideoLimitException exception) {
@@ -70,6 +92,9 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 		Topic topic = topicPersistencePort.findByTopicUuid(topicUuid)
 				.orElseThrow(() -> new IllegalArgumentException("토픽이 존재하지 않습니다."));
 		requireActiveMember(topic.getAgitUuid(), actorUuid);
+		if (!ownsVideo(videoUuid, actorUuid)) {
+			throw new ForbiddenActorException();
+		}
 		boolean attached = topicPersistencePort.addVideoIfAbsent(topicUuid, videoUuid, actorUuid);
 		if (attached) {
 			topicReadCachePort.evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
@@ -110,6 +135,12 @@ public class TopicVideoService implements AttachTopicVideoUseCase, DetachTopicVi
 		}
 		agitMembershipPort.findActiveMember(agitUuid, actorUuid)
 				.orElseThrow(ForbiddenActorException::new);
+	}
+
+	private boolean ownsVideo(UUID videoUuid, UUID userUuid) {
+		return videoOwnershipPort.findOwnerUuid(videoUuid)
+				.filter(userUuid::equals)
+				.isPresent();
 	}
 
 	private Topic loadForRead(UUID topicUuid) {

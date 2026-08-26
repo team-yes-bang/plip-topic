@@ -1,6 +1,7 @@
 package com.plip.topic.adapter.in.web;
 
 import com.plip.topic.adapter.out.agit.StubAgitMembershipAdapter;
+import com.plip.topic.adapter.out.video.StubVideoOwnershipAdapter;
 import com.plip.topic.application.port.out.AgitMemberRole;
 import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.domain.model.Topic;
@@ -43,11 +44,15 @@ class TopicControllerTest {
 	@Autowired
 	private StubAgitMembershipAdapter stubAgitMembershipAdapter;
 
+	@Autowired
+	private StubVideoOwnershipAdapter stubVideoOwnershipAdapter;
+
 	private UUID viewerUuid;
 
 	@BeforeEach
 	void resetMembershipStub() {
 		stubAgitMembershipAdapter.reset();
+		stubVideoOwnershipAdapter.reset();
 		viewerUuid = UUID.randomUUID();
 	}
 
@@ -331,6 +336,7 @@ class TopicControllerTest {
 		));
 		UUID videoUuid = UUID.randomUUID();
 		UUID userUuid = UUID.randomUUID();
+		stubVideoOwnershipAdapter.setOwner(videoUuid, userUuid);
 
 		mockMvc.perform(post("/api/v1/topics/{topicUuid}/videos", saved.getTopicUuid())
 						.with(actor(userUuid))
@@ -360,6 +366,8 @@ class TopicControllerTest {
 		));
 		UUID userUuid = UUID.randomUUID();
 		topicPersistencePort.addVideoIfAbsent(saved.getTopicUuid(), UUID.randomUUID(), userUuid);
+		UUID secondVideoUuid = UUID.randomUUID();
+		stubVideoOwnershipAdapter.setOwner(secondVideoUuid, userUuid);
 
 		mockMvc.perform(post("/api/v1/topics/{topicUuid}/videos", saved.getTopicUuid())
 						.with(actor(userUuid))
@@ -368,7 +376,7 @@ class TopicControllerTest {
 								{
 								  "videoUuid": "%s"
 								}
-								""".formatted(UUID.randomUUID())))
+								""".formatted(secondVideoUuid)))
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.message").value("이미 이 토픽에 영상을 올렸습니다."));
 	}

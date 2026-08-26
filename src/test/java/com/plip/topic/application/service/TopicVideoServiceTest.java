@@ -1,7 +1,9 @@
 package com.plip.topic.application.service;
 
+import com.plip.topic.application.exception.AgitMembershipUnavailableException;
 import com.plip.topic.application.exception.ForbiddenActorException;
 import com.plip.topic.application.exception.UnauthenticatedActorException;
+import com.plip.topic.application.exception.VideoOwnershipUnavailableException;
 import com.plip.topic.application.port.out.AgitMemberRole;
 import com.plip.topic.application.port.out.AgitMembership;
 import com.plip.topic.application.port.out.AgitMembershipPort;
@@ -9,6 +11,7 @@ import com.plip.topic.application.port.out.TopicPersistencePort;
 import com.plip.topic.application.port.out.TopicReadCachePort;
 import com.plip.topic.application.port.out.TopicVideoEventPort;
 import com.plip.topic.application.port.out.TopicViewerSnapshotPort;
+import com.plip.topic.application.port.out.VideoOwnershipPort;
 import com.plip.topic.domain.model.Topic;
 import com.plip.topic.domain.model.TopicVideoLimitException;
 import org.junit.jupiter.api.Test;
@@ -46,12 +49,14 @@ class TopicVideoServiceTest {
 	@Mock
 	private AgitMembershipPort agitMembershipPort;
 
+	@Mock
+	private VideoOwnershipPort videoOwnershipPort;
+
 	@InjectMocks
 	private TopicVideoService topicVideoService;
 
 	@Test
 	void tryAttach_delegatesToPersistenceAndEvictsCache() {
-		UUID topicUuid = UUID.randomUUID();
 		UUID videoUuid = UUID.randomUUID();
 		UUID userUuid = UUID.randomUUID();
 		Topic topic = Topic.create(
@@ -60,11 +65,14 @@ class TopicVideoServiceTest {
 				"제목",
 				LocalDateTime.of(2026, 8, 18, 0, 0)
 		);
-		given(topicPersistencePort.addVideoIfAbsent(topicUuid, videoUuid, userUuid)).willReturn(true);
-		given(topicPersistencePort.findByTopicUuid(topicUuid)).willReturn(Optional.of(topic));
+		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
+		given(agitMembershipPort.findActiveMember(topic.getAgitUuid(), userUuid))
+				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
+		given(videoOwnershipPort.findOwnerUuid(videoUuid)).willReturn(Optional.of(userUuid));
+		given(topicPersistencePort.addVideoIfAbsent(topic.getTopicUuid(), videoUuid, userUuid)).willReturn(true);
 
-		assertThat(topicVideoService.tryAttach(topicUuid, videoUuid, userUuid)).isTrue();
-		verify(topicPersistencePort).addVideoIfAbsent(topicUuid, videoUuid, userUuid);
+		assertThat(topicVideoService.tryAttach(topic.getTopicUuid(), videoUuid, userUuid)).isTrue();
+		verify(topicPersistencePort).addVideoIfAbsent(topic.getTopicUuid(), videoUuid, userUuid);
 		verify(topicReadCachePort).evict(topic.getAgitUuid(), topic.getStartAt().toLocalDate());
 		verify(topicViewerSnapshotPort).save(topic);
 		verify(topicVideoEventPort, never()).publishAttached(any(), any(), any(), any());
@@ -72,11 +80,97 @@ class TopicVideoServiceTest {
 
 	@Test
 	void tryAttach_swallowsUserLimit() {
-		given(topicPersistencePort.addVideoIfAbsent(any(), any(), any())).willThrow(new TopicVideoLimitException());
+		UUID videoUuid = UUID.randomUUID();
+		UUID userUuid = UUID.randomUUID();
+		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
+		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
+		given(agitMembershipPort.findActiveMember(topic.getAgitUuid(), userUuid))
+				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
+		given(videoOwnershipPort.findOwnerUuid(videoUuid)).willReturn(Optional.of(userUuid));
+		given(topicPersistencePort.addVideoIfAbsent(topic.getTopicUuid(), videoUuid, userUuid))
+				.willThrow(new TopicVideoLimitException());
 
-		assertThat(topicVideoService.tryAttach(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())).isFalse();
+		assertThat(topicVideoService.tryAttach(topic.getTopicUuid(), videoUuid, userUuid)).isFalse();
 		verify(topicReadCachePort, never()).evict(any(), any());
 		verify(topicViewerSnapshotPort, never()).save(any(Topic.class));
+	}
+
+	@Test
+	void tryAttach_skipsMissingTopic() {
+		UUID topicUuid = UUID.randomUUID();
+		given(topicPersistencePort.findByTopicUuid(topicUuid)).willReturn(Optional.empty());
+
+		assertThat(topicVideoService.tryAttach(topicUuid, UUID.randomUUID(), UUID.randomUUID())).isFalse();
+		verify(topicPersistencePort, never()).addVideoIfAbsent(any(), any(), any());
+	}
+
+	@Test
+	void tryAttach_skipsNonMember() {
+		UUID videoUuid = UUID.randomUUID();
+		UUID userUuid = UUID.randomUUID();
+		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
+		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
+		given(agitMembershipPort.findActiveMember(topic.getAgitUuid(), userUuid)).willReturn(Optional.empty());
+
+		assertThat(topicVideoService.tryAttach(topic.getTopicUuid(), videoUuid, userUuid)).isFalse();
+		verify(videoOwnershipPort, never()).findOwnerUuid(any());
+		verify(topicPersistencePort, never()).addVideoIfAbsent(any(), any(), any());
+	}
+
+	@Test
+	void tryAttach_skipsWhenOwnerMismatch() {
+		UUID videoUuid = UUID.randomUUID();
+		UUID userUuid = UUID.randomUUID();
+		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
+		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
+		given(agitMembershipPort.findActiveMember(topic.getAgitUuid(), userUuid))
+				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
+		given(videoOwnershipPort.findOwnerUuid(videoUuid)).willReturn(Optional.of(UUID.randomUUID()));
+
+		assertThat(topicVideoService.tryAttach(topic.getTopicUuid(), videoUuid, userUuid)).isFalse();
+		verify(topicPersistencePort, never()).addVideoIfAbsent(any(), any(), any());
+	}
+
+	@Test
+	void tryAttach_skipsWhenVideoMissing() {
+		UUID videoUuid = UUID.randomUUID();
+		UUID userUuid = UUID.randomUUID();
+		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
+		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
+		given(agitMembershipPort.findActiveMember(topic.getAgitUuid(), userUuid))
+				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
+		given(videoOwnershipPort.findOwnerUuid(videoUuid)).willReturn(Optional.empty());
+
+		assertThat(topicVideoService.tryAttach(topic.getTopicUuid(), videoUuid, userUuid)).isFalse();
+		verify(topicPersistencePort, never()).addVideoIfAbsent(any(), any(), any());
+	}
+
+	@Test
+	void tryAttach_throwsWhenOwnershipUnavailable() {
+		UUID videoUuid = UUID.randomUUID();
+		UUID userUuid = UUID.randomUUID();
+		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
+		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
+		given(agitMembershipPort.findActiveMember(topic.getAgitUuid(), userUuid))
+				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
+		given(videoOwnershipPort.findOwnerUuid(videoUuid)).willThrow(new VideoOwnershipUnavailableException());
+
+		assertThatThrownBy(() -> topicVideoService.tryAttach(topic.getTopicUuid(), videoUuid, userUuid))
+				.isInstanceOf(VideoOwnershipUnavailableException.class);
+		verify(topicPersistencePort, never()).addVideoIfAbsent(any(), any(), any());
+	}
+
+	@Test
+	void tryAttach_throwsWhenMembershipUnavailable() {
+		UUID userUuid = UUID.randomUUID();
+		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
+		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
+		given(agitMembershipPort.findActiveMember(topic.getAgitUuid(), userUuid))
+				.willThrow(new AgitMembershipUnavailableException());
+
+		assertThatThrownBy(() -> topicVideoService.tryAttach(topic.getTopicUuid(), UUID.randomUUID(), userUuid))
+				.isInstanceOf(AgitMembershipUnavailableException.class);
+		verify(topicPersistencePort, never()).addVideoIfAbsent(any(), any(), any());
 	}
 
 	@Test
@@ -100,6 +194,7 @@ class TopicVideoServiceTest {
 				.willReturn(Optional.of(topic), Optional.of(withVideo));
 		given(agitMembershipPort.findActiveMember(topic.getAgitUuid(), userUuid))
 				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
+		given(videoOwnershipPort.findOwnerUuid(videoUuid)).willReturn(Optional.of(userUuid));
 		given(topicPersistencePort.addVideoIfAbsent(topic.getTopicUuid(), videoUuid, userUuid)).willReturn(true);
 
 		assertThat(topicVideoService.attachOrThrow(topic.getTopicUuid(), videoUuid, userUuid)).isTrue();
@@ -114,6 +209,7 @@ class TopicVideoServiceTest {
 		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
 		given(agitMembershipPort.findActiveMember(topic.getAgitUuid(), userUuid))
 				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
+		given(videoOwnershipPort.findOwnerUuid(videoUuid)).willReturn(Optional.of(userUuid));
 		given(topicPersistencePort.addVideoIfAbsent(topic.getTopicUuid(), videoUuid, userUuid)).willReturn(false);
 
 		assertThat(topicVideoService.attachOrThrow(topic.getTopicUuid(), videoUuid, userUuid)).isFalse();
@@ -129,6 +225,21 @@ class TopicVideoServiceTest {
 
 		assertThatThrownBy(() -> topicVideoService.attachOrThrow(
 				topic.getTopicUuid(), UUID.randomUUID(), actorUuid))
+				.isInstanceOf(ForbiddenActorException.class);
+		verify(topicPersistencePort, never()).addVideoIfAbsent(any(), any(), any());
+	}
+
+	@Test
+	void attachOrThrow_forbidsNonOwner() {
+		Topic topic = Topic.create(UUID.randomUUID(), UUID.randomUUID(), "제목", LocalDateTime.of(2026, 8, 18, 0, 0));
+		UUID videoUuid = UUID.randomUUID();
+		UUID actorUuid = UUID.randomUUID();
+		given(topicPersistencePort.findByTopicUuid(topic.getTopicUuid())).willReturn(Optional.of(topic));
+		given(agitMembershipPort.findActiveMember(topic.getAgitUuid(), actorUuid))
+				.willReturn(Optional.of(new AgitMembership(AgitMemberRole.GUEST)));
+		given(videoOwnershipPort.findOwnerUuid(videoUuid)).willReturn(Optional.of(UUID.randomUUID()));
+
+		assertThatThrownBy(() -> topicVideoService.attachOrThrow(topic.getTopicUuid(), videoUuid, actorUuid))
 				.isInstanceOf(ForbiddenActorException.class);
 		verify(topicPersistencePort, never()).addVideoIfAbsent(any(), any(), any());
 	}

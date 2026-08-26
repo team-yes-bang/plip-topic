@@ -22,3 +22,7 @@ spring:
 eureka:
   client:
     enabled: false
+
+app:
+  internal:
+    api-key: test-internal-api-key
