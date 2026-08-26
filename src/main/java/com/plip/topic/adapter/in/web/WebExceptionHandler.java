@@ -3,6 +3,7 @@ package com.plip.topic.adapter.in.web;
 import com.plip.topic.application.exception.AgitMembershipUnavailableException;
 import com.plip.topic.application.exception.ForbiddenActorException;
 import com.plip.topic.application.exception.UnauthenticatedActorException;
+import com.plip.topic.application.exception.VideoOwnershipUnavailableException;
 import com.plip.topic.domain.model.TopicVideoLimitException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -29,6 +30,12 @@ public class WebExceptionHandler {
 	@ExceptionHandler(AgitMembershipUnavailableException.class)
 	@ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
 	public Map<String, String> handleMembershipUnavailable(AgitMembershipUnavailableException exception) {
+		return Map.of("message", exception.getMessage());
+	}
+
+	@ExceptionHandler(VideoOwnershipUnavailableException.class)
+	@ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+	public Map<String, String> handleVideoOwnershipUnavailable(VideoOwnershipUnavailableException exception) {
 		return Map.of("message", exception.getMessage());
 	}
 
