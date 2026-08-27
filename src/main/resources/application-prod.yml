@@ -1,0 +1,4 @@
+app:
+  video:
+    internal-base-url: ${VIDEO_INTERNAL_BASE_URL:http://plip-video.plip.svc.cluster.local:8080}
+    internal-api-key: ${VIDEO_INTERNAL_API_KEY:}
